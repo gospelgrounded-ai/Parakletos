@@ -1,0 +1,52 @@
+import type { Metadata } from "next";
+import { Inter, Lora } from "next/font/google";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { SessionProvider } from "@/components/providers/SessionProvider";
+import { Toaster } from "sonner";
+import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
+
+const lora = Lora({
+  subsets: ["latin"],
+  variable: "--font-serif",
+  display: "swap",
+});
+
+export const metadata: Metadata = {
+  title: {
+    default: "Parakletos — Bible Study",
+    template: "%s | Parakletos",
+  },
+  description:
+    "A powerful, beautiful Bible study app with multiple translations, highlights, notes, and deep study tools.",
+  keywords: ["Bible", "Bible study", "scripture", "devotional", "commentary"],
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.variable} ${lora.variable} font-sans antialiased`}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <SessionProvider>
+            {children}
+            <Toaster richColors position="top-center" />
+          </SessionProvider>
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
