@@ -3,9 +3,31 @@ import type { Config } from "tailwindcss";
 const config: Config = {
   darkMode: ["class"],
   content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  // Highlight colors are referenced via data arrays (src/types), so pin them
+  // explicitly to guarantee they survive production CSS purging.
+  safelist: [
+    "bg-yellow-200",
+    "bg-green-200",
+    "bg-blue-200",
+    "bg-pink-200",
+    "bg-purple-200",
+    "border-yellow-400",
+    "border-green-400",
+    "border-blue-400",
+    "border-pink-400",
+    "border-purple-400",
+    "bg-yellow-200/70",
+    "bg-green-200/70",
+    "bg-blue-200/70",
+    "bg-pink-200/70",
+    "bg-purple-200/70",
+    "dark:bg-yellow-400/30",
+    "dark:bg-green-400/30",
+    "dark:bg-blue-400/30",
+    "dark:bg-pink-400/30",
+    "dark:bg-purple-400/30",
   ],
   theme: {
     container: {
