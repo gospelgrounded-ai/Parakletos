@@ -63,22 +63,31 @@ export async function POST(request: Request) {
       );
     }
 
-    const progress = await db.readingProgress.upsert({
-      where: { userId: session.user.id },
-      update: {
-        translation: translation.toUpperCase(),
-        book: bookNum,
-        chapter: chapterNum,
-        verse: verseNum,
-      },
-      create: {
-        userId: session.user.id,
-        translation: translation.toUpperCase(),
-        book: bookNum,
-        chapter: chapterNum,
-        verse: verseNum,
-      },
-    });
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
+
+    const [progress] = await db.$transaction([
+      db.readingProgress.upsert({
+        where: { userId: session.user.id },
+        update: {
+          translation: translation.toUpperCase(),
+          book: bookNum,
+          chapter: chapterNum,
+          verse: verseNum,
+        },
+        create: {
+          userId: session.user.id,
+          translation: translation.toUpperCase(),
+          book: bookNum,
+          chapter: chapterNum,
+          verse: verseNum,
+        },
+      }),
+      db.dailyReading.upsert({
+        where: { userId_date: { userId: session.user.id, date: today } },
+        update: { chaptersRead: { increment: 1 } },
+        create: { userId: session.user.id, date: today, chaptersRead: 1 },
+      }),
+    ]);
 
     return NextResponse.json({ progress });
   } catch (error) {

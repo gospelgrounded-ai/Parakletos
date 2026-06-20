@@ -10,6 +10,7 @@ import {
   Bookmark,
   Settings,
   LogOut,
+  House,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -23,6 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const NAV_LINKS = [
+  { href: "/home", icon: House, label: "Home" },
   { href: "/bible", icon: BookOpen, label: "Read" },
   { href: "/search", icon: Search, label: "Search" },
   { href: "/plans", icon: Calendar, label: "Plans" },

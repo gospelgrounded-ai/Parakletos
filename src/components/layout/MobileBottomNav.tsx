@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Search, Calendar, Bookmark, Settings } from "lucide-react";
+import { BookOpen, Search, Calendar, Bookmark, House } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
+  { href: "/home", icon: House, label: "Home" },
   { href: "/bible", icon: BookOpen, label: "Read" },
   { href: "/search", icon: Search, label: "Search" },
   { href: "/plans", icon: Calendar, label: "Plans" },
   { href: "/library", icon: Bookmark, label: "Library" },
-  { href: "/settings", icon: Settings, label: "Settings" },
 ] as const;
 
 export default function MobileBottomNav() {
