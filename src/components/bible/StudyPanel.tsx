@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, BookOpen, GitBranch, Scroll } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatReference, getBook } from "@/lib/bible-books";
+import { formatReference } from "@/lib/bible-books";
 import useSWR from "swr";
 import Link from "next/link";
 
@@ -19,39 +19,53 @@ interface StudyPanelProps {
 
 type Tab = "cross-refs" | "commentary" | "word-study";
 
-export default function StudyPanel({
+export default function StudyPanel(props: StudyPanelProps) {
+  return (
+    <>
+      {/* Desktop: docked sidebar */}
+      <div className="hidden lg:flex flex-col w-80 xl:w-96 border-l bg-card h-full">
+        <div className="flex items-center justify-between px-4 py-3 border-b">
+          <div>
+            <p className="font-semibold text-sm">Study Tools</p>
+            {props.verse && (
+              <p className="text-xs text-muted-foreground">
+                {formatReference(props.book, props.chapter, props.verse)}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={props.onClose}
+            className="p-1.5 rounded-md hover:bg-muted transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <StudyTools {...props} />
+      </div>
+
+      {/* Mobile / tablet: bottom sheet */}
+      <MobileStudySheet {...props} />
+    </>
+  );
+}
+
+/**
+ * Shared tab bar + content, used by both the desktop sidebar and the mobile
+ * bottom sheet. Each instance keeps its own tab state; SWR dedupes the fetches
+ * by key so the two shells share one cache.
+ */
+function StudyTools({
   translation,
   book,
   chapter,
   verse,
-  onClose,
-}: StudyPanelProps) {
+}: Omit<StudyPanelProps, "onClose">) {
   const [activeTab, setActiveTab] = useState<Tab>("cross-refs");
 
-  const bookInfo = getBook(book);
-
   return (
-    <div className="hidden lg:flex flex-col w-80 xl:w-96 border-l bg-card h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b">
-        <div>
-          <p className="font-semibold text-sm">Study Tools</p>
-          {verse && (
-            <p className="text-xs text-muted-foreground">
-              {formatReference(book, chapter, verse)}
-            </p>
-          )}
-        </div>
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-md hover:bg-muted transition-colors"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
+    <>
       {/* Tabs */}
-      <div className="flex border-b">
+      <div className="flex border-b shrink-0">
         {(
           [
             { id: "cross-refs" as Tab, label: "Cross-Refs", icon: <GitBranch className="h-3.5 w-3.5" /> },
@@ -76,14 +90,9 @@ export default function StudyPanel({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overscroll-contain">
         {activeTab === "cross-refs" && (
-          <CrossRefsTab
-            translation={translation}
-            book={book}
-            chapter={chapter}
-            verse={verse}
-          />
+          <CrossRefsTab translation={translation} book={book} chapter={chapter} verse={verse} />
         )}
         {activeTab === "commentary" && (
           <CommentaryTab book={book} chapter={chapter} verse={verse} />
@@ -91,6 +100,115 @@ export default function StudyPanel({
         {activeTab === "word-study" && (
           <WordStudyTab book={book} chapter={chapter} verse={verse} />
         )}
+      </div>
+    </>
+  );
+}
+
+/**
+ * Mobile bottom sheet: slides up from the bottom, dim backdrop, drag-handle
+ * with swipe-to-dismiss. Hidden at lg+ where the docked sidebar takes over.
+ */
+function MobileStudySheet({
+  translation,
+  book,
+  chapter,
+  verse,
+  onClose,
+}: StudyPanelProps) {
+  const [mounted, setMounted] = useState(false);
+  const [dragY, setDragY] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const startY = useRef(0);
+
+  // Slide up on mount
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  // Lock body scroll while the sheet is open — but only below lg, since this
+  // component is also mounted (display:none) on desktop where the sidebar wins.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(max-width: 1023px)").matches) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  function close() {
+    setMounted(false);
+    setTimeout(onClose, 250); // let the slide-down finish
+  }
+
+  function onTouchStart(e: React.TouchEvent) {
+    startY.current = e.touches[0].clientY;
+    setDragging(true);
+  }
+  function onTouchMove(e: React.TouchEvent) {
+    const dy = e.touches[0].clientY - startY.current;
+    setDragY(Math.max(0, dy));
+  }
+  function onTouchEnd() {
+    setDragging(false);
+    if (dragY > 110) {
+      close();
+    } else {
+      setDragY(0);
+    }
+  }
+
+  return (
+    <div className="lg:hidden fixed inset-0 z-50">
+      {/* Backdrop */}
+      <div
+        onClick={close}
+        className={cn(
+          "absolute inset-0 bg-black/40 transition-opacity duration-300",
+          mounted ? "opacity-100" : "opacity-0"
+        )}
+      />
+
+      {/* Sheet */}
+      <div
+        className="absolute inset-x-0 bottom-0 flex flex-col bg-card rounded-t-2xl shadow-2xl max-h-[85vh] h-[85vh]"
+        style={{
+          transform: mounted ? `translateY(${dragY}px)` : "translateY(100%)",
+          transition: dragging ? "none" : "transform 250ms ease-out",
+        }}
+      >
+        {/* Drag handle */}
+        <div
+          className="shrink-0 pt-2.5 pb-1.5 cursor-grab active:cursor-grabbing touch-none"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
+          <div className="mx-auto h-1.5 w-10 rounded-full bg-muted-foreground/30" />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 pb-2.5 border-b shrink-0">
+          <div>
+            <p className="font-semibold text-sm">Study Tools</p>
+            {verse && (
+              <p className="text-xs text-muted-foreground">
+                {formatReference(book, chapter, verse)}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={close}
+            className="p-1.5 rounded-md hover:bg-muted transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <StudyTools translation={translation} book={book} chapter={chapter} verse={verse} />
       </div>
     </div>
   );
