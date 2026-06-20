@@ -10,11 +10,13 @@ import {
   Copy,
   X,
   Check,
+  Share2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { HIGHLIGHT_COLORS, type HighlightColor } from "@/types/index";
 import { formatReference } from "@/lib/bible-books";
 import { cn } from "@/lib/utils";
+import ShareVerseModal from "./ShareVerseModal";
 
 interface VerseActionsBarProps {
   verse: number;
@@ -36,6 +38,7 @@ interface VerseActionsBarProps {
 export default function VerseActionsBar({
   verse,
   text,
+  translation,
   book,
   chapter,
   currentHighlight,
@@ -50,6 +53,7 @@ export default function VerseActionsBar({
 }: VerseActionsBarProps) {
   const [showColors, setShowColors] = useState(false);
   const [showNoteEditor, setShowNoteEditor] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [noteContent, setNoteContent] = useState(note?.content ?? "");
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -89,6 +93,18 @@ export default function VerseActionsBar({
 
   return (
     <>
+      {/* Share Modal */}
+      {showShareModal && (
+        <ShareVerseModal
+          verse={verse}
+          text={text}
+          translation={translation}
+          book={book}
+          chapter={chapter}
+          onClose={() => setShowShareModal(false)}
+        />
+      )}
+
       {/* Note Editor Overlay */}
       {showNoteEditor && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4">
@@ -211,6 +227,11 @@ export default function VerseActionsBar({
               icon={copied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
               label="Copy"
               onClick={handleCopy}
+            />
+            <ActionButton
+              icon={<Share2 className="h-5 w-5" />}
+              label="Share"
+              onClick={() => setShowShareModal(true)}
             />
           </div>
         </div>
