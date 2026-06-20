@@ -118,4 +118,22 @@
       transform: translateY(0);
     }
   }
+
+  /* Brief glow on a verse arrived-at via a #v{n} deep-link */
+  .verse-flash {
+    animation: verseFlash 2.2s ease-out;
+    border-radius: 0.375rem;
+  }
+
+  @keyframes verseFlash {
+    0%,
+    35% {
+      background-color: hsl(var(--primary) / 0.18);
+      box-shadow: 0 0 0 4px hsl(var(--primary) / 0.18);
+    }
+    100% {
+      background-color: transparent;
+      box-shadow: 0 0 0 4px transparent;
+    }
+  }
 }

@@ -43,6 +43,24 @@ export default function BibleReaderClient({
   const [studyPanelOpen, setStudyPanelOpen] = useState(false);
   const [activeStudyVerse, setActiveStudyVerse] = useState<number | null>(null);
 
+  // Scroll to (and briefly flash) a verse when arriving via a #v{n} deep-link,
+  // e.g. from the Library or a cross-reference.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash;
+    if (!hash.startsWith("#v")) return;
+    const target = Number(hash.slice(2));
+    if (!target) return;
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`v${target}`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("verse-flash");
+      setTimeout(() => el.classList.remove("verse-flash"), 2200);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [translation, book, chapter]);
+
   // Save reading progress on mount
   const progressSaved = useRef(false);
   useEffect(() => {

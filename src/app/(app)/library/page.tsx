@@ -1,45 +1,41 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { BOOK_BY_ID } from "@/lib/bible-books";
 import { HighlightColor, HIGHLIGHT_COLORS } from "@/types";
-import { BookOpen, Bookmark, FileText } from "lucide-react";
+import { Bookmark, FileText, Search, Highlighter } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface LibraryHighlight {
+interface BaseEntry {
   id: string;
   translation: string;
   book: number;
   chapter: number;
   verse: number;
+  bookName: string;
+  reference: string;
+  text: string;
+  createdAt: string;
+}
+interface HighlightEntry extends BaseEntry {
   color: HighlightColor;
-  createdAt: string;
 }
-
-interface LibraryBookmark {
-  id: string;
-  translation: string;
-  book: number;
-  chapter: number;
-  verse: number;
+interface BookmarkEntry extends BaseEntry {
   label?: string | null;
-  bookName?: string;
-  createdAt: string;
+}
+interface NoteEntry extends BaseEntry {
+  content: string;
 }
 
-interface LibraryNote {
-  id: string;
-  translation: string;
-  book: number;
-  chapter: number;
-  verse: number;
-  content: string;
-  createdAt: string;
+interface StudyData {
+  highlights: HighlightEntry[];
+  bookmarks: BookmarkEntry[];
+  notes: NoteEntry[];
 }
 
 // ─── Fetcher ──────────────────────────────────────────────────────────────────
@@ -52,23 +48,23 @@ const fetcher = (url: string) =>
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function formatReference(
-  book: number,
-  chapter: number,
-  verse: number,
-  bookName?: string
-): string {
-  const name = bookName ?? BOOK_BY_ID.get(book)?.name ?? `Book ${book}`;
-  return `${name} ${chapter}:${verse}`;
+function colorDot(color: HighlightColor) {
+  const bg = HIGHLIGHT_COLORS.find((c) => c.color === color)?.bg ?? "bg-gray-200";
+  return <span className={cn("inline-block w-3 h-3 rounded-full shrink-0", bg)} />;
 }
 
-function getColorDot(color: HighlightColor) {
-  const found = HIGHLIGHT_COLORS.find((c) => c.color === color);
-  const bgClass = found?.bg ?? "bg-gray-200";
-  return <span className={cn("inline-block w-3 h-3 rounded-full", bgClass)} />;
+/** Group entries by book, preserving canonical order (entries arrive book-sorted). */
+function groupByBook<T extends BaseEntry>(entries: T[]): Array<[string, T[]]> {
+  const groups = new Map<string, T[]>();
+  for (const e of entries) {
+    const arr = groups.get(e.bookName) ?? [];
+    arr.push(e);
+    groups.set(e.bookName, arr);
+  }
+  return [...groups.entries()];
 }
 
-// ─── Loading skeleton ─────────────────────────────────────────────────────────
+// ─── Shared UI ───────────────────────────────────────────────────────────────
 
 function ListSkeleton() {
   return (
@@ -83,213 +79,262 @@ function ListSkeleton() {
   );
 }
 
-// ─── Empty state ─────────────────────────────────────────────────────────────
-
-function EmptyState({ message }: { message: string }) {
+function EmptyState({ icon, message }: { icon: React.ReactNode; message: string }) {
   return (
     <div className="text-center py-16 text-muted-foreground">
-      <BookOpen className="h-10 w-10 mx-auto mb-3 opacity-20" />
+      <div className="mx-auto mb-3 opacity-20 w-fit">{icon}</div>
       <p className="text-sm">{message}</p>
     </div>
   );
 }
 
-// ─── Tab content components ───────────────────────────────────────────────────
-
-function HighlightsTab() {
-  const router = useRouter();
-  const { data, isLoading } = useSWR<{ highlights: LibraryHighlight[] }>(
-    "/api/user/highlights?all=true",
-    fetcher
-  );
-
-  if (isLoading) return <ListSkeleton />;
-
-  const highlights = data?.highlights ?? [];
-
-  if (highlights.length === 0) {
-    return (
-      <EmptyState message="No highlights yet. Highlight a verse while reading to save it here." />
-    );
-  }
-
-  // Group by color
-  const grouped = HIGHLIGHT_COLORS.reduce<
-    Record<HighlightColor, LibraryHighlight[]>
-  >(
-    (acc, { color }) => {
-      acc[color] = highlights.filter((h) => h.color === color);
-      return acc;
-    },
-    {} as Record<HighlightColor, LibraryHighlight[]>
-  );
-
+function BookGroup({
+  bookName,
+  count,
+  children,
+}: {
+  bookName: string;
+  count: number;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="space-y-6">
-      {HIGHLIGHT_COLORS.map(({ color, label }) => {
-        const items = grouped[color];
-        if (!items || items.length === 0) return null;
-        return (
-          <div key={color}>
-            <div className="flex items-center gap-2 mb-2">
-              {getColorDot(color)}
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                {label}
-              </h3>
-              <span className="text-xs text-muted-foreground">
-                ({items.length})
-              </span>
-            </div>
-            <ul className="space-y-2">
-              {items.map((h) => (
-                <li key={h.id}>
-                  <button
-                    onClick={() =>
-                      router.push(
-                        `/bible/${h.translation}/${h.book}/${h.chapter}`
-                      )
-                    }
-                    className="w-full text-left rounded-lg border p-3 hover:bg-muted/50 transition-colors"
-                  >
-                    <span className="text-sm font-medium">
-                      {formatReference(h.book, h.chapter, h.verse)}
-                    </span>
-                    <span className="text-xs text-muted-foreground ml-2">
-                      {h.translation}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        );
-      })}
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          {bookName}
+        </h3>
+        <span className="text-xs text-muted-foreground/60">{count}</span>
+      </div>
+      <ul className="space-y-2">{children}</ul>
     </div>
   );
 }
 
-function BookmarksTab() {
+// ─── Tabs ───────────────────────────────────────────────────────────────────
+
+function HighlightsTab({ data, query }: { data: HighlightEntry[]; query: string }) {
   const router = useRouter();
-  const { data, isLoading } = useSWR<{ bookmarks: LibraryBookmark[] }>(
-    "/api/user/bookmarks",
-    fetcher
+  const filtered = useMemo(
+    () =>
+      data.filter(
+        (h) =>
+          h.reference.toLowerCase().includes(query) ||
+          h.text.toLowerCase().includes(query)
+      ),
+    [data, query]
   );
 
-  if (isLoading) return <ListSkeleton />;
-
-  const bookmarks = data?.bookmarks ?? [];
-
-  if (bookmarks.length === 0) {
+  if (data.length === 0) {
     return (
-      <EmptyState message="No bookmarks yet. Bookmark a verse while reading to save it here." />
+      <EmptyState
+        icon={<Highlighter className="h-10 w-10" />}
+        message="No highlights yet. Highlight a verse while reading to save it here."
+      />
     );
+  }
+  if (filtered.length === 0) {
+    return <EmptyState icon={<Search className="h-10 w-10" />} message="No matches." />;
   }
 
   return (
-    <ul className="space-y-2">
-      {bookmarks.map((bm) => (
-        <li key={bm.id}>
-          <button
-            onClick={() =>
-              router.push(`/bible/${bm.translation}/${bm.book}/${bm.chapter}`)
-            }
-            className="w-full text-left rounded-lg border p-4 hover:bg-muted/50 transition-colors"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Bookmark className="h-4 w-4 text-primary flex-shrink-0" />
-                <span className="text-sm font-medium">
-                  {formatReference(bm.book, bm.chapter, bm.verse, bm.bookName)}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {bm.translation}
-                </span>
-              </div>
-            </div>
-            {bm.label && (
-              <p className="text-sm text-muted-foreground mt-1 ml-6">
-                {bm.label}
-              </p>
-            )}
-          </button>
-        </li>
+    <div className="space-y-6">
+      {groupByBook(filtered).map(([bookName, items]) => (
+        <BookGroup key={bookName} bookName={bookName} count={items.length}>
+          {items.map((h) => (
+            <li key={h.id}>
+              <button
+                onClick={() =>
+                  router.push(`/bible/${h.translation}/${h.book}/${h.chapter}#v${h.verse}`)
+                }
+                className="w-full text-left rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  {colorDot(h.color)}
+                  <span className="text-sm font-medium">{h.reference}</span>
+                  <span className="text-xs text-muted-foreground">{h.translation}</span>
+                </div>
+                {h.text && (
+                  <p className="text-sm text-muted-foreground font-serif line-clamp-2 ml-5">
+                    {h.text}
+                  </p>
+                )}
+              </button>
+            </li>
+          ))}
+        </BookGroup>
       ))}
-    </ul>
+    </div>
   );
 }
 
-function NotesTab() {
+function BookmarksTab({ data, query }: { data: BookmarkEntry[]; query: string }) {
   const router = useRouter();
-  const { data, isLoading } = useSWR<{ notes: LibraryNote[] }>(
-    "/api/user/notes?all=true",
-    fetcher
+  const filtered = useMemo(
+    () =>
+      data.filter(
+        (b) =>
+          b.reference.toLowerCase().includes(query) ||
+          b.text.toLowerCase().includes(query) ||
+          (b.label ?? "").toLowerCase().includes(query)
+      ),
+    [data, query]
   );
 
-  if (isLoading) return <ListSkeleton />;
-
-  const notes = data?.notes ?? [];
-
-  if (notes.length === 0) {
+  if (data.length === 0) {
     return (
-      <EmptyState message="No notes yet. Add a note to a verse while reading to save it here." />
+      <EmptyState
+        icon={<Bookmark className="h-10 w-10" />}
+        message="No bookmarks yet. Bookmark a verse while reading to save it here."
+      />
     );
+  }
+  if (filtered.length === 0) {
+    return <EmptyState icon={<Search className="h-10 w-10" />} message="No matches." />;
   }
 
   return (
-    <ul className="space-y-2">
-      {notes.map((note) => (
-        <li key={note.id}>
-          <button
-            onClick={() =>
-              router.push(
-                `/bible/${note.translation}/${note.book}/${note.chapter}`
-              )
-            }
-            className="w-full text-left rounded-lg border p-4 hover:bg-muted/50 transition-colors"
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <FileText className="h-4 w-4 text-primary flex-shrink-0" />
-              <span className="text-sm font-medium">
-                {formatReference(note.book, note.chapter, note.verse)}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {note.translation}
-              </span>
-            </div>
-            <p className="text-sm text-muted-foreground ml-6 line-clamp-2">
-              {note.content.length > 100
-                ? note.content.slice(0, 100).trimEnd() + "…"
-                : note.content}
-            </p>
-          </button>
-        </li>
+    <div className="space-y-6">
+      {groupByBook(filtered).map(([bookName, items]) => (
+        <BookGroup key={bookName} bookName={bookName} count={items.length}>
+          {items.map((b) => (
+            <li key={b.id}>
+              <button
+                onClick={() =>
+                  router.push(`/bible/${b.translation}/${b.book}/${b.chapter}#v${b.verse}`)
+                }
+                className="w-full text-left rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Bookmark className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-sm font-medium">{b.reference}</span>
+                  <span className="text-xs text-muted-foreground">{b.translation}</span>
+                </div>
+                {b.text && (
+                  <p className="text-sm text-muted-foreground font-serif line-clamp-2 ml-6">
+                    {b.text}
+                  </p>
+                )}
+                {b.label && (
+                  <p className="text-xs text-primary/80 mt-1 ml-6">{b.label}</p>
+                )}
+              </button>
+            </li>
+          ))}
+        </BookGroup>
       ))}
-    </ul>
+    </div>
+  );
+}
+
+function NotesTab({ data, query }: { data: NoteEntry[]; query: string }) {
+  const router = useRouter();
+  const filtered = useMemo(
+    () =>
+      data.filter(
+        (n) =>
+          n.reference.toLowerCase().includes(query) ||
+          n.content.toLowerCase().includes(query) ||
+          n.text.toLowerCase().includes(query)
+      ),
+    [data, query]
+  );
+
+  if (data.length === 0) {
+    return (
+      <EmptyState
+        icon={<FileText className="h-10 w-10" />}
+        message="No notes yet. Add a note to a verse while reading to save it here."
+      />
+    );
+  }
+  if (filtered.length === 0) {
+    return <EmptyState icon={<Search className="h-10 w-10" />} message="No matches." />;
+  }
+
+  return (
+    <div className="space-y-6">
+      {groupByBook(filtered).map(([bookName, items]) => (
+        <BookGroup key={bookName} bookName={bookName} count={items.length}>
+          {items.map((n) => (
+            <li key={n.id}>
+              <button
+                onClick={() =>
+                  router.push(`/bible/${n.translation}/${n.book}/${n.chapter}#v${n.verse}`)
+                }
+                className="w-full text-left rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <FileText className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-sm font-medium">{n.reference}</span>
+                  <span className="text-xs text-muted-foreground">{n.translation}</span>
+                </div>
+                {n.text && (
+                  <p className="text-xs text-muted-foreground/70 font-serif italic line-clamp-1 ml-6 mb-1">
+                    {n.text}
+                  </p>
+                )}
+                <p className="text-sm ml-6 line-clamp-3 whitespace-pre-wrap">{n.content}</p>
+              </button>
+            </li>
+          ))}
+        </BookGroup>
+      ))}
+    </div>
   );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function LibraryPage() {
+  const [search, setSearch] = useState("");
+  const query = search.trim().toLowerCase();
+  const { data, isLoading } = useSWR<StudyData>("/api/user/study", fetcher);
+
+  const highlights = data?.highlights ?? [];
+  const bookmarks = data?.bookmarks ?? [];
+  const notes = data?.notes ?? [];
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 pb-24 lg:pb-8">
-      <h1 className="text-2xl font-bold mb-6">Your Library</h1>
-      <Tabs defaultValue="highlights">
-        <TabsList className="mb-6">
-          <TabsTrigger value="highlights">Highlights</TabsTrigger>
-          <TabsTrigger value="bookmarks">Bookmarks</TabsTrigger>
-          <TabsTrigger value="notes">Notes</TabsTrigger>
-        </TabsList>
-        <TabsContent value="highlights">
-          <HighlightsTab />
-        </TabsContent>
-        <TabsContent value="bookmarks">
-          <BookmarksTab />
-        </TabsContent>
-        <TabsContent value="notes">
-          <NotesTab />
-        </TabsContent>
-      </Tabs>
+      <h1 className="text-2xl font-bold mb-4">Your Library</h1>
+
+      {/* Search */}
+      <div className="relative mb-6">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search your highlights, notes, and references…"
+          className="w-full rounded-lg border bg-background pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+        />
+      </div>
+
+      {isLoading ? (
+        <ListSkeleton />
+      ) : (
+        <Tabs defaultValue="highlights">
+          <TabsList className="mb-6">
+            <TabsTrigger value="highlights">
+              Highlights{highlights.length ? ` (${highlights.length})` : ""}
+            </TabsTrigger>
+            <TabsTrigger value="bookmarks">
+              Bookmarks{bookmarks.length ? ` (${bookmarks.length})` : ""}
+            </TabsTrigger>
+            <TabsTrigger value="notes">
+              Notes{notes.length ? ` (${notes.length})` : ""}
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="highlights">
+            <HighlightsTab data={highlights} query={query} />
+          </TabsContent>
+          <TabsContent value="bookmarks">
+            <BookmarksTab data={bookmarks} query={query} />
+          </TabsContent>
+          <TabsContent value="notes">
+            <NotesTab data={notes} query={query} />
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }

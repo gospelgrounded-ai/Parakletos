@@ -9,6 +9,29 @@ import Link from "next/link";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
+/**
+ * Commentary introductions arrive as one long run-on paragraph. Break them into
+ * a few readable chunks: prefer existing newlines, otherwise group sentences so
+ * no single block is an overwhelming wall of text.
+ */
+function splitIntoParagraphs(text: string): string[] {
+  const byNewline = text
+    .split(/\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (byNewline.length > 1) return byNewline;
+
+  const sentences = text.match(/[^.!?]+[.!?]+(\s|$)/g);
+  if (!sentences || sentences.length <= 3) return [text.trim()];
+
+  const perChunk = Math.ceil(sentences.length / Math.ceil(sentences.length / 3));
+  const chunks: string[] = [];
+  for (let i = 0; i < sentences.length; i += perChunk) {
+    chunks.push(sentences.slice(i, i + perChunk).join("").trim());
+  }
+  return chunks;
+}
+
 interface StudyPanelProps {
   translation: string;
   book: number;
@@ -378,10 +401,15 @@ function CommentaryTab({
             {isOpen && (
               <div className="pb-2">
                 {commentary.introduction && (
-                  <div className="px-4 py-2 border-b bg-muted/20">
-                    <p className="text-[11px] text-muted-foreground leading-relaxed font-serif italic">
-                      {commentary.introduction}
-                    </p>
+                  <div className="px-4 py-2.5 border-b bg-muted/20 space-y-1.5">
+                    {splitIntoParagraphs(commentary.introduction).map((para, idx) => (
+                      <p
+                        key={idx}
+                        className="text-[11px] text-muted-foreground leading-relaxed font-serif"
+                      >
+                        {para}
+                      </p>
+                    ))}
                   </div>
                 )}
 
