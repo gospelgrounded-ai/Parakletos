@@ -88,7 +88,9 @@ export default function StudyPanel({
         {activeTab === "commentary" && (
           <CommentaryTab bookName={bookInfo?.name ?? ""} chapter={chapter} />
         )}
-        {activeTab === "word-study" && <WordStudyTab />}
+        {activeTab === "word-study" && (
+          <WordStudyTab book={book} chapter={chapter} verse={verse} />
+        )}
       </div>
     </div>
   );
@@ -212,16 +214,125 @@ function CommentaryTab({
   );
 }
 
-function WordStudyTab() {
+interface StrongsWord {
+  word: string;
+  strongs: string;
+  lemma: string | null;
+  translit: string | null;
+  pron: string | null;
+  definition: string | null;
+  kjvDef: string | null;
+  derivation: string | null;
+}
+
+function WordStudyTab({
+  book,
+  chapter,
+  verse,
+}: {
+  book: number;
+  chapter: number;
+  verse: number | null;
+}) {
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const { data, isLoading } = useSWR(
+    verse ? `/api/word-study?book=${book}&chapter=${chapter}&verse=${verse}` : null,
+    fetcher
+  );
+
+  if (!verse) {
+    return (
+      <div className="p-4 text-center text-sm text-muted-foreground">
+        <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-30" />
+        <p>Select a verse to study the original language</p>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="p-4 space-y-2">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="h-12 bg-muted rounded animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  const words: StrongsWord[] = data?.words ?? [];
+  const language: string = data?.language ?? "original";
+
+  if (words.length === 0) {
+    return (
+      <div className="p-4 text-center text-sm text-muted-foreground">
+        <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-30" />
+        <p>No original-language data available for this verse</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-4 text-center py-8">
-      <BookOpen className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-      <p className="font-medium text-sm">Word Study</p>
-      <p className="text-xs text-muted-foreground mt-1 max-w-48 mx-auto">
-        Click on any word while in study mode to see Strong&apos;s concordance entries,
-        original Greek and Hebrew definitions.
-      </p>
-      <p className="text-xs text-muted-foreground mt-3 opacity-60">Coming soon</p>
+    <div>
+      <div className="px-4 py-2 border-b bg-muted/30">
+        <p className="text-[11px] text-muted-foreground">
+          {language} word study · Strong&apos;s numbers via KJV
+        </p>
+      </div>
+      <div className="divide-y">
+        {words.map((w, i) => {
+          const isOpen = expanded === i;
+          return (
+            <div key={i}>
+              <button
+                onClick={() => setExpanded(isOpen ? null : i)}
+                className="w-full text-left px-4 py-2.5 hover:bg-muted/50 transition-colors flex items-center justify-between gap-2"
+              >
+                <div className="min-w-0">
+                  <span className="text-sm font-serif">{w.word || "—"}</span>
+                  {w.lemma && (
+                    <span className="ml-2 text-sm text-primary font-medium">{w.lemma}</span>
+                  )}
+                  {w.translit && (
+                    <span className="ml-1.5 text-xs text-muted-foreground italic">
+                      {w.translit}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+                  {w.strongs}
+                </span>
+              </button>
+              {isOpen && (
+                <div className="px-4 pb-3 pt-0 space-y-2 text-xs">
+                  {w.pron && (
+                    <p className="text-muted-foreground">
+                      Pronunciation: <span className="italic">{w.pron}</span>
+                    </p>
+                  )}
+                  {w.definition && (
+                    <p>
+                      <span className="font-semibold">Definition: </span>
+                      {w.definition}
+                    </p>
+                  )}
+                  {w.kjvDef && (
+                    <p className="text-muted-foreground">
+                      <span className="font-semibold text-foreground">KJV renderings: </span>
+                      {w.kjvDef}
+                    </p>
+                  )}
+                  {w.derivation && (
+                    <p className="text-muted-foreground">
+                      <span className="font-semibold text-foreground">Origin: </span>
+                      {w.derivation}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

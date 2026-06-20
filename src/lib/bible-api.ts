@@ -76,6 +76,51 @@ export async function fetchChapter(
   return verses.map((v) => ({ ...v, text: cleanVerseText(v.text) }));
 }
 
+export interface StrongsToken {
+  word: string;
+  strongs: string[]; // e.g. ["G1722"] or ["H7225"]
+}
+
+/**
+ * Fetch a chapter from bolls.life's KJV, which carries Strong's concordance
+ * numbers (<S>1722</S>) for the whole Bible. Text is intentionally NOT cleaned
+ * so the Strong's tags can be parsed for word study.
+ */
+export async function fetchStrongsChapter(
+  book: number,
+  chapter: number
+): Promise<BollsVerse[]> {
+  const res = await fetch(
+    `${BOLLS_BASE}/get-text/KJV/${book}/${chapter}/`,
+    FETCH_OPTIONS
+  );
+  if (!res.ok) throw new Error(`Failed to fetch Strong's ${book}:${chapter}`);
+  return res.json();
+}
+
+/**
+ * Parse a Strong's-tagged verse into word tokens. OT books (1–39) use Hebrew
+ * numbers (H prefix); NT books (40–66) use Greek (G prefix).
+ */
+export function parseStrongs(rawText: string, testament: "OT" | "NT"): StrongsToken[] {
+  const prefix = testament === "OT" ? "H" : "G";
+  const text = rawText.replace(/<sup>.*?<\/sup>/g, ""); // drop footnotes
+  const tokens: StrongsToken[] = [];
+
+  for (const chunk of text.split(/\s+/)) {
+    if (!chunk) continue;
+    const numbers = [...chunk.matchAll(/<S>(\d+)<\/S>/g)].map((m) => prefix + m[1]);
+    const word = chunk
+      .replace(/<S>\d+<\/S>/g, "")
+      .replace(/<[^>]+>/g, "")
+      .trim();
+    if (!word && numbers.length === 0) continue;
+    tokens.push({ word, strongs: numbers });
+  }
+
+  return tokens;
+}
+
 export async function searchBible(
   translation: string,
   query: string
