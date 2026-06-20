@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, BookOpen, Calendar, Columns2, Languages } from "lucide-react";
+import { ChevronLeft, ChevronRight, BookOpen, Calendar, Columns2, Languages, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getBook, BIBLE_BOOKS } from "@/lib/bible-books";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,8 @@ interface ChapterNavProps {
   translation: string;
   book: number;
   chapter: number;
+  audioActive?: boolean;
+  onAudioToggle?: () => void;
 }
 
 interface PlanPassage {
@@ -54,7 +56,7 @@ function flattenPlan(days: PlanDay[]): FlatPassage[] {
   return result;
 }
 
-function ChapterNavInner({ translation, book, chapter }: ChapterNavProps) {
+function ChapterNavInner({ translation, book, chapter, audioActive, onAudioToggle }: ChapterNavProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [selectorOpen, setSelectorOpen] = useState(false);
@@ -309,6 +311,25 @@ function ChapterNavInner({ translation, book, chapter }: ChapterNavProps) {
             <Languages className="h-3.5 w-3.5" />
           </Button>
 
+          {/* Audio toggle */}
+          {onAudioToggle && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onAudioToggle}
+              className={cn(
+                "h-8 w-8 p-0 flex-shrink-0",
+                audioActive
+                  ? "text-primary bg-primary/10 hover:bg-primary/20"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              title={audioActive ? "Close audio player" : "Listen to chapter"}
+              aria-label={audioActive ? "Close audio player" : "Listen to chapter"}
+            >
+              <Volume2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+
           {/* Secondary translation selector — only in parallel mode */}
           {parallelTranslation && (
             <Select value={parallelTranslation} onValueChange={changeParallel}>
@@ -381,7 +402,7 @@ function ChapterNavSkeleton({ translation, book, chapter }: ChapterNavProps) {
 
 export default function ChapterNav(props: ChapterNavProps) {
   return (
-    <Suspense fallback={<ChapterNavSkeleton {...props} />}>
+    <Suspense fallback={<ChapterNavSkeleton translation={props.translation} book={props.book} chapter={props.chapter} />}>
       <ChapterNavInner {...props} />
     </Suspense>
   );

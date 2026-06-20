@@ -11,6 +11,7 @@ interface VerseListProps {
   bookmarks: Set<number>;
   notes: Map<number, { id: string; content: string }>;
   selectedVerse: number | null;
+  readingVerse?: number | null;
   onVerseClick: (verse: number) => void;
 }
 
@@ -22,6 +23,7 @@ export default function VerseList({
   bookmarks,
   notes,
   selectedVerse,
+  readingVerse,
   onVerseClick,
 }: VerseListProps) {
   const bookInfo = getBook(book);
@@ -50,6 +52,7 @@ export default function VerseList({
             isBookmarked={bookmarks.has(verse.verse)}
             hasNote={notes.has(verse.verse)}
             isSelected={selectedVerse === verse.verse}
+            isReading={readingVerse === verse.verse}
             onClick={() => onVerseClick(verse.verse)}
           />
         ))}

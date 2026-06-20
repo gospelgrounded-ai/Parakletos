@@ -9,6 +9,7 @@ interface VerseItemProps {
   isBookmarked?: boolean;
   hasNote?: boolean;
   isSelected?: boolean;
+  isReading?: boolean;
   onClick: () => void;
 }
 
@@ -19,6 +20,7 @@ export default function VerseItem({
   isBookmarked,
   hasNote,
   isSelected,
+  isReading,
   onClick,
 }: VerseItemProps) {
   const highlightClass = highlight
@@ -31,6 +33,7 @@ export default function VerseItem({
       className={cn(
         "group relative inline cursor-pointer rounded-sm transition-colors duration-150",
         "hover:bg-primary/5",
+        isReading && "bg-amber-400/15 outline outline-1 outline-amber-400/40 rounded",
         isSelected && "bg-primary/10 outline outline-1 outline-primary/20 rounded",
       )}
       onClick={onClick}

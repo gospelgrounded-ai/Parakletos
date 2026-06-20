@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { type HighlightColor } from "@/types";
+import { getBook } from "@/lib/bible-books";
 import ChapterNav from "./ChapterNav";
 import VerseList from "./VerseList";
 import ParallelVerseList from "./ParallelVerseList";
 import InterlinearVerseList from "./InterlinearVerseList";
+import AudioPlayer from "./AudioPlayer";
 import VerseActionsBar from "./VerseActionsBar";
 import StudyPanel from "./StudyPanel";
 
@@ -48,6 +50,10 @@ export default function BibleReaderClient({
   );
   const [studyPanelOpen, setStudyPanelOpen] = useState(false);
   const [activeStudyVerse, setActiveStudyVerse] = useState<number | null>(null);
+  const [audioMode, setAudioMode] = useState(false);
+  const [readingVerse, setReadingVerse] = useState<number | null>(null);
+
+  const bookName = getBook(book)?.name ?? "Bible";
 
   // Scroll to (and briefly flash) a verse when arriving via a #v{n} deep-link,
   // e.g. from the Library or a cross-reference.
@@ -200,15 +206,21 @@ export default function BibleReaderClient({
     <div className="flex h-full min-h-0">
       {/* Reader area */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
-        <ChapterNav translation={translation} book={book} chapter={chapter} />
+        <ChapterNav
+          translation={translation}
+          book={book}
+          chapter={chapter}
+          audioActive={audioMode}
+          onAudioToggle={() => setAudioMode((v) => !v)}
+        />
         <div className="flex-1 overflow-y-auto" style={{ background: "hsl(var(--reader-bg))" }}>
           <div
             className={
               parallelTranslation
-                ? "max-w-5xl mx-auto px-4 sm:px-6 py-8 pb-28"
+                ? `max-w-5xl mx-auto px-4 sm:px-6 py-8 ${audioMode ? "pb-44" : "pb-28"}`
                 : interlinearMode
-                ? "max-w-3xl mx-auto px-4 sm:px-6 py-8 pb-28"
-                : "max-w-2xl mx-auto px-4 sm:px-8 py-8 pb-28"
+                ? `max-w-3xl mx-auto px-4 sm:px-6 py-8 ${audioMode ? "pb-44" : "pb-28"}`
+                : `max-w-2xl mx-auto px-4 sm:px-8 py-8 ${audioMode ? "pb-44" : "pb-28"}`
             }
           >
             {interlinearMode ? (
@@ -245,6 +257,7 @@ export default function BibleReaderClient({
                 bookmarks={bookmarks}
                 notes={notes}
                 selectedVerse={selectedVerse}
+                readingVerse={readingVerse}
                 onVerseClick={(verse) =>
                   setSelectedVerse(verse === selectedVerse ? null : verse)
                 }
@@ -262,6 +275,20 @@ export default function BibleReaderClient({
           chapter={chapter}
           verse={activeStudyVerse}
           onClose={() => setStudyPanelOpen(false)}
+        />
+      )}
+
+      {/* Audio Player — fixed bottom bar */}
+      {audioMode && (
+        <AudioPlayer
+          verses={verses}
+          bookName={bookName}
+          chapter={chapter}
+          onReadingVerseChange={setReadingVerse}
+          onClose={() => {
+            setAudioMode(false);
+            setReadingVerse(null);
+          }}
         />
       )}
 
