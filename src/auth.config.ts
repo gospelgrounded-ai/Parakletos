@@ -2,6 +2,8 @@ import type { NextAuthConfig } from "next-auth";
 
 // Minimal config for Edge middleware (no Prisma, no bcrypt)
 export const authConfig: NextAuthConfig = {
+  // Vercel's proxy changes the host header — trust it so middleware doesn't throw.
+  trustHost: true,
   pages: {
     signIn: "/login",
   },
