@@ -86,7 +86,7 @@ export default function StudyPanel({
           />
         )}
         {activeTab === "commentary" && (
-          <CommentaryTab bookName={bookInfo?.name ?? ""} chapter={chapter} />
+          <CommentaryTab book={book} chapter={chapter} verse={verse} />
         )}
         {activeTab === "word-study" && (
           <WordStudyTab book={book} chapter={chapter} verse={verse} />
@@ -177,39 +177,117 @@ function CrossRefsTab({
   );
 }
 
-function CommentaryTab({
-  bookName,
-  chapter,
-}: {
-  bookName: string;
-  chapter: number;
-}) {
-  return (
-    <div className="p-4 space-y-4">
-      <div className="text-center py-8">
-        <Scroll className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-        <p className="font-medium text-sm">Commentary</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          {bookName} {chapter}
-        </p>
-        <p className="text-xs text-muted-foreground mt-4 max-w-48 mx-auto">
-          Matthew Henry&apos;s Commentary and other resources coming soon.
-        </p>
-      </div>
+interface CommentaryVerse {
+  verse: number;
+  text: string;
+}
 
-      {/* Placeholder cards */}
-      <div className="space-y-3">
-        {["Matthew Henry", "Adam Clarke", "John Gill"].map((name) => (
-          <div key={name} className="border rounded-lg p-3 opacity-40">
-            <p className="text-xs font-semibold mb-1">{name}&apos;s Commentary</p>
-            <div className="space-y-1.5">
+interface CommentaryEntry {
+  id: string;
+  name: string;
+  introduction: string | null;
+  verses: CommentaryVerse[];
+}
+
+// Sentinel meaning "user explicitly closed all"
+const COMMENTARY_NONE = "__none__";
+
+function CommentaryTab({
+  book,
+  chapter,
+  verse,
+}: {
+  book: number;
+  chapter: number;
+  verse: number | null;
+}) {
+  // null = default (first open), "__none__" = all closed, id = that one open
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const { data, isLoading } = useSWR(
+    `/api/commentary?book=${book}&chapter=${chapter}`,
+    fetcher
+  );
+
+  if (isLoading) {
+    return (
+      <div className="p-4 space-y-4">
+        {[...Array(2)].map((_, i) => (
+          <div key={i} className="border rounded-lg p-3 space-y-2">
+            <div className="h-3 bg-muted rounded w-36 animate-pulse" />
+            <div className="space-y-1.5 mt-2">
               <div className="h-2 bg-muted rounded animate-pulse" />
               <div className="h-2 bg-muted rounded animate-pulse w-4/5" />
               <div className="h-2 bg-muted rounded animate-pulse w-3/5" />
+              <div className="h-2 bg-muted rounded animate-pulse w-5/6" />
             </div>
           </div>
         ))}
       </div>
+    );
+  }
+
+  const commentaries: CommentaryEntry[] = data?.commentaries ?? [];
+
+  if (commentaries.length === 0) {
+    return (
+      <div className="p-4 text-center text-sm text-muted-foreground">
+        <Scroll className="h-8 w-8 mx-auto mb-2 opacity-30" />
+        <p>No commentary available for this chapter</p>
+        <p className="text-xs mt-1">More resources coming soon</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="divide-y">
+      {commentaries.map((commentary) => {
+        // Default: first commentary open; user can toggle
+        const activeId = expanded === null ? (commentaries[0]?.id ?? "") : expanded;
+        const isOpen = activeId !== COMMENTARY_NONE && activeId === commentary.id;
+        return (
+          <div key={commentary.id}>
+            <button
+              onClick={() => setExpanded(isOpen ? COMMENTARY_NONE : commentary.id)}
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+            >
+              <div>
+                <p className="text-xs font-semibold">{commentary.name}</p>
+                <p className="text-[10px] text-muted-foreground">Public domain</p>
+              </div>
+              <span className="text-muted-foreground text-[10px]">{isOpen ? "▲" : "▼"}</span>
+            </button>
+
+            {isOpen && (
+              <div className="pb-2">
+                {commentary.introduction && (
+                  <div className="px-4 py-2 border-b bg-muted/20">
+                    <p className="text-[11px] text-muted-foreground leading-relaxed font-serif italic">
+                      {commentary.introduction}
+                    </p>
+                  </div>
+                )}
+
+                <div className="divide-y">
+                  {commentary.verses.map((v) => (
+                    <div
+                      key={v.verse}
+                      className={cn(
+                        "px-4 py-2.5",
+                        verse === v.verse && "bg-primary/5 border-l-2 border-l-primary"
+                      )}
+                    >
+                      <p className="text-[10px] font-semibold text-primary mb-1">v.{v.verse}</p>
+                      <p className="text-xs text-foreground/80 leading-relaxed font-serif">
+                        {v.text}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
