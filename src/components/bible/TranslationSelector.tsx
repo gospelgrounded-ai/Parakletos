@@ -20,6 +20,8 @@ interface TranslationSelectorProps {
   currentTranslation: string;
   book: number;
   chapter: number;
+  /** Optional query-string to append when navigating (e.g., plan context). */
+  extraSearch?: string;
 }
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -28,6 +30,7 @@ export default function TranslationSelector({
   currentTranslation,
   book,
   chapter,
+  extraSearch,
 }: TranslationSelectorProps) {
   const router = useRouter();
   const { data } = useSWR<{ groups: BollsLanguageGroup[] }>(
@@ -37,7 +40,8 @@ export default function TranslationSelector({
   );
 
   function handleSelect(value: string) {
-    router.push(`/bible/${value}/${book}/${chapter}`);
+    const base = `/bible/${value}/${book}/${chapter}`;
+    router.push(extraSearch ? `${base}?${extraSearch}` : base);
   }
 
   // All non-featured translations grouped by language

@@ -4,7 +4,7 @@ import { use } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { BIBLE_BOOKS } from "@/lib/bible-books";
-import { CheckCircle2, Circle, BookOpen, ArrowLeft } from "lucide-react";
+import { CheckCircle2, Circle, BookOpen, ArrowLeft, PlayCircle } from "lucide-react";
 import { toast } from "sonner";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -59,10 +59,8 @@ export default function PlanDetailPage({
 
   if (!plan) return null;
 
-  const completedDays = new Set<number>(
-    progress?.completedDays ?? []
-  );
-  const currentDay = progress?.currentDay ?? 1;
+  const completedDays = new Set<number>(progress?.completedDays ?? []);
+  const currentDay: number = progress?.currentDay ?? 1;
 
   return (
     <div className="max-w-2xl mx-auto p-4 sm:p-6 pb-24">
@@ -74,6 +72,7 @@ export default function PlanDetailPage({
         Reading Plans
       </Link>
 
+      {/* Plan header */}
       <div
         className="rounded-xl p-6 text-white mb-6"
         style={{ backgroundColor: plan.coverColor ?? "#4F46E5" }}
@@ -93,11 +92,14 @@ export default function PlanDetailPage({
         </div>
       </div>
 
+      {/* Day list */}
       <div className="space-y-2">
         {(plan.days as PlanDay[])?.map((day) => {
           const passages: Passage[] = JSON.parse(day.passages);
           const isComplete = completedDays.has(day.dayNumber);
           const isCurrent = day.dayNumber === currentDay;
+          // First passage of this day — used for the "Start reading" button
+          const firstPassage = passages[0];
 
           return (
             <div
@@ -108,9 +110,11 @@ export default function PlanDetailPage({
                   : "border-border hover:bg-muted/50"
               }`}
             >
+              {/* Complete toggle */}
               <button
                 onClick={() => !isComplete && markDayComplete(day.dayNumber)}
                 className="mt-0.5 flex-shrink-0"
+                aria-label={isComplete ? `Day ${day.dayNumber} complete` : `Mark day ${day.dayNumber} complete`}
               >
                 {isComplete ? (
                   <CheckCircle2 className="h-5 w-5 text-green-500" />
@@ -120,7 +124,7 @@ export default function PlanDetailPage({
               </button>
 
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-muted-foreground mb-1">
+                <p className="text-sm font-medium text-muted-foreground mb-1.5">
                   Day {day.dayNumber}
                   {isCurrent && (
                     <span className="ml-2 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
@@ -128,22 +132,36 @@ export default function PlanDetailPage({
                     </span>
                   )}
                 </p>
+
+                {/* Individual passage links */}
                 <div className="flex flex-wrap gap-2">
                   {passages.map((p, i) => {
-                    const book = BIBLE_BOOKS.find((b) => b.id === p.book);
+                    const bookInfo = BIBLE_BOOKS.find((b) => b.id === p.book);
+                    const href = `/bible/KJV/${p.book}/${p.chapter}?planId=${planId}&day=${day.dayNumber}&passage=${i}`;
                     return (
                       <Link
                         key={i}
-                        href={`/bible/KJV/${p.book}/${p.chapter}`}
+                        href={href}
                         className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
                       >
                         <BookOpen className="h-3 w-3" />
-                        {book?.shortName ?? p.book} {p.chapter}
+                        {bookInfo?.shortName ?? p.book} {p.chapter}
                       </Link>
                     );
                   })}
                 </div>
               </div>
+
+              {/* "Start reading" CTA for the current day */}
+              {isCurrent && !isComplete && firstPassage && (
+                <Link
+                  href={`/bible/KJV/${firstPassage.book}/${firstPassage.chapter}?planId=${planId}&day=${day.dayNumber}&passage=0`}
+                  className="flex-shrink-0 flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <PlayCircle className="h-3.5 w-3.5" />
+                  Read
+                </Link>
+              )}
             </div>
           );
         })}
