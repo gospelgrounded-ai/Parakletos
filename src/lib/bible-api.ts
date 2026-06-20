@@ -28,6 +28,24 @@ const FETCH_OPTIONS = {
   next: { revalidate: 86400 },
 } as const;
 
+/**
+ * Some bolls.life translations (notably KJV and ASV) are served as the
+ * Strong's-tagged variant, so verse text contains inline markup:
+ *   - <S>1722</S>  Strong's concordance numbers
+ *   - <sup>...</sup>  translator footnotes
+ *   - <i>was</i>  italicized supplied words
+ * Strip the numbers and notes, keep the readable words, tidy whitespace.
+ */
+export function cleanVerseText(raw: string): string {
+  return raw
+    .replace(/<S>.*?<\/S>/g, "") // Strong's numbers (remove with content)
+    .replace(/<sup>.*?<\/sup>/g, "") // translator footnotes (remove with content)
+    .replace(/<[^>]+>/g, "") // any remaining tags (<i>, <b>, <br/>) — keep inner text
+    .replace(/\s+/g, " ") // collapse whitespace left behind
+    .replace(/\s+([,.;:!?’”)])/g, "$1") // tidy stray space before punctuation
+    .trim();
+}
+
 export async function fetchTranslations(): Promise<BollsLanguageGroup[]> {
   const res = await fetch(
     `${BOLLS_BASE}/static/bolls/app/views/languages-and-translations.json`,
@@ -54,7 +72,8 @@ export async function fetchChapter(
     FETCH_OPTIONS
   );
   if (!res.ok) throw new Error(`Failed to fetch ${translation} ${book}:${chapter}`);
-  return res.json();
+  const verses = (await res.json()) as BollsVerse[];
+  return verses.map((v) => ({ ...v, text: cleanVerseText(v.text) }));
 }
 
 export async function searchBible(
@@ -68,7 +87,11 @@ export async function searchBible(
   );
   if (!res.ok) return [];
   const data = await res.json();
-  return Array.isArray(data) ? data : [];
+  if (!Array.isArray(data)) return [];
+  return (data as BollsSearchResult[]).map((r) => ({
+    ...r,
+    text: cleanVerseText(r.text),
+  }));
 }
 
 export async function fetchBookList(
@@ -89,5 +112,4 @@ export const FEATURED_TRANSLATIONS = [
   { short_name: "WEB", full_name: "World English Bible", language: "English" },
   { short_name: "ASV", full_name: "American Standard Version", language: "English" },
   { short_name: "YLT", full_name: "Young's Literal Translation", language: "English" },
-  { short_name: "BBE", full_name: "Bible in Basic English", language: "English" },
 ];
