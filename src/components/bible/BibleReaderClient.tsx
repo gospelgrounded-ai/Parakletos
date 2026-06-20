@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { type HighlightColor } from "@/types";
 import ChapterNav from "./ChapterNav";
 import VerseList from "./VerseList";
+import ParallelVerseList from "./ParallelVerseList";
 import VerseActionsBar from "./VerseActionsBar";
 import StudyPanel from "./StudyPanel";
 
@@ -16,6 +17,7 @@ interface BibleReaderClientProps {
   initialHighlights: Array<{ id: string; verse: number; color: string }>;
   initialBookmarks: Array<{ id: string; verse: number; label?: string | null }>;
   initialNotes: Array<{ id: string; verse: number; content: string }>;
+  parallelTranslation?: string;
 }
 
 export default function BibleReaderClient({
@@ -26,6 +28,7 @@ export default function BibleReaderClient({
   initialHighlights,
   initialBookmarks,
   initialNotes,
+  parallelTranslation,
 }: BibleReaderClientProps) {
   const [selectedVerse, setSelectedVerse] = useState<number | null>(null);
   const [highlights, setHighlights] = useState<Map<number, { id: string; color: string }>>(
@@ -196,20 +199,43 @@ export default function BibleReaderClient({
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
         <ChapterNav translation={translation} book={book} chapter={chapter} />
         <div className="flex-1 overflow-y-auto" style={{ background: "hsl(var(--reader-bg))" }}>
-          <div className="max-w-2xl mx-auto px-4 sm:px-8 py-8 pb-28">
-            <VerseList
-              verses={verses}
-              translation={translation}
-              book={book}
-              chapter={chapter}
-              highlights={highlights}
-              bookmarks={bookmarks}
-              notes={notes}
-              selectedVerse={selectedVerse}
-              onVerseClick={(verse) =>
-                setSelectedVerse(verse === selectedVerse ? null : verse)
-              }
-            />
+          <div
+            className={
+              parallelTranslation
+                ? "max-w-5xl mx-auto px-4 sm:px-6 py-8 pb-28"
+                : "max-w-2xl mx-auto px-4 sm:px-8 py-8 pb-28"
+            }
+          >
+            {parallelTranslation ? (
+              <ParallelVerseList
+                verses={verses}
+                translation={translation}
+                parallelTranslation={parallelTranslation}
+                book={book}
+                chapter={chapter}
+                highlights={highlights}
+                bookmarks={bookmarks}
+                notes={notes}
+                selectedVerse={selectedVerse}
+                onVerseClick={(verse) =>
+                  setSelectedVerse(verse === selectedVerse ? null : verse)
+                }
+              />
+            ) : (
+              <VerseList
+                verses={verses}
+                translation={translation}
+                book={book}
+                chapter={chapter}
+                highlights={highlights}
+                bookmarks={bookmarks}
+                notes={notes}
+                selectedVerse={selectedVerse}
+                onVerseClick={(verse) =>
+                  setSelectedVerse(verse === selectedVerse ? null : verse)
+                }
+              />
+            )}
           </div>
         </div>
       </div>

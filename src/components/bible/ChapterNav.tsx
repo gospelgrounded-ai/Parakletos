@@ -2,12 +2,20 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, BookOpen, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight, BookOpen, Calendar, Columns2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getBook, BIBLE_BOOKS } from "@/lib/bible-books";
 import { cn } from "@/lib/utils";
 import BookChapterSelector from "./BookChapterSelector";
 import TranslationSelector from "./TranslationSelector";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { FEATURED_TRANSLATIONS } from "@/lib/bible-api";
 import useSWR from "swr";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -54,6 +62,7 @@ function ChapterNavInner({ translation, book, chapter }: ChapterNavProps) {
   const planId = searchParams.get("planId");
   const planDay = Number(searchParams.get("day") ?? "0");
   const passageIdx = Number(searchParams.get("passage") ?? "0");
+  const parallelTranslation = searchParams.get("parallel");
 
   const { data: plan } = useSWR(
     planId ? `/api/reading-plans/${planId}` : null,
@@ -79,7 +88,8 @@ function ChapterNavInner({ translation, book, chapter }: ChapterNavProps) {
   const dayPassages = flat.filter((p) => p.day === planDay);
 
   function planUrl(entry: FlatPassage) {
-    return `/bible/${translation}/${entry.book}/${entry.chapter}?planId=${planId}&day=${entry.day}&passage=${entry.passageIdx}`;
+    const base = `/bible/${translation}/${entry.book}/${entry.chapter}?planId=${planId}&day=${entry.day}&passage=${entry.passageIdx}`;
+    return parallelTranslation ? `${base}&parallel=${parallelTranslation}` : base;
   }
 
   function markDayComplete() {
@@ -90,20 +100,39 @@ function ChapterNavInner({ translation, book, chapter }: ChapterNavProps) {
     }).catch(() => {});
   }
 
+  function toggleParallel() {
+    const params = new URLSearchParams(searchParams.toString());
+    if (params.has("parallel")) {
+      params.delete("parallel");
+    } else {
+      params.set("parallel", "NKJV");
+    }
+    const qs = params.toString();
+    router.push(`/bible/${translation}/${book}/${chapter}${qs ? `?${qs}` : ""}`);
+  }
+
+  function changeParallel(newTranslation: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("parallel", newTranslation);
+    router.push(`/bible/${translation}/${book}/${chapter}?${params.toString()}`);
+  }
+
   function navigatePrev() {
+    const qs = parallelTranslation ? `?parallel=${parallelTranslation}` : "";
     if (inPlanMode) {
       if (prevEntry) router.push(planUrl(prevEntry));
     } else {
       if (chapter > 1) {
-        router.push(`/bible/${translation}/${book}/${chapter - 1}`);
+        router.push(`/bible/${translation}/${book}/${chapter - 1}${qs}`);
       } else if (book > 1) {
         const prevBook = BIBLE_BOOKS[book - 2];
-        router.push(`/bible/${translation}/${prevBook.id}/${prevBook.chapters}`);
+        router.push(`/bible/${translation}/${prevBook.id}/${prevBook.chapters}${qs}`);
       }
     }
   }
 
   function navigateNext() {
+    const qs = parallelTranslation ? `?parallel=${parallelTranslation}` : "";
     if (inPlanMode) {
       if (nextEntry) {
         // Crossing into a new day — mark the current day complete
@@ -116,10 +145,10 @@ function ChapterNavInner({ translation, book, chapter }: ChapterNavProps) {
       }
     } else {
       if (chapter < totalChapters) {
-        router.push(`/bible/${translation}/${book}/${chapter + 1}`);
+        router.push(`/bible/${translation}/${book}/${chapter + 1}${qs}`);
       } else if (book < 66) {
         const nextBook = BIBLE_BOOKS[book];
-        router.push(`/bible/${translation}/${nextBook.id}/1`);
+        router.push(`/bible/${translation}/${nextBook.id}/1${qs}`);
       }
     }
   }
@@ -150,10 +179,19 @@ function ChapterNavInner({ translation, book, chapter }: ChapterNavProps) {
     return "Next";
   }
 
-  // Preserve plan params when translation changes
-  const planSearch = planId
-    ? `planId=${planId}&day=${planDay}&passage=${passageIdx}`
-    : undefined;
+  // Preserve plan + parallel params when translation changes
+  const extraSearch = (() => {
+    const p = new URLSearchParams();
+    if (planId) {
+      p.set("planId", planId);
+      p.set("day", String(planDay));
+      p.set("passage", String(passageIdx));
+    }
+    if (parallelTranslation) {
+      p.set("parallel", parallelTranslation);
+    }
+    return p.toString() || undefined;
+  })();
 
   return (
     // Single sticky wrapper so the plan banner stays fixed with the nav
@@ -193,7 +231,7 @@ function ChapterNavInner({ translation, book, chapter }: ChapterNavProps) {
         </Button>
 
         {/* Center */}
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-1.5 min-w-0">
           <Button
             variant="ghost"
             size="sm"
@@ -208,8 +246,45 @@ function ChapterNavInner({ translation, book, chapter }: ChapterNavProps) {
             currentTranslation={translation}
             book={book}
             chapter={chapter}
-            extraSearch={planSearch}
+            extraSearch={extraSearch}
           />
+
+          {/* Parallel toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleParallel}
+            className={cn(
+              "h-8 w-8 p-0 flex-shrink-0",
+              parallelTranslation
+                ? "text-primary bg-primary/10 hover:bg-primary/20"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            title={parallelTranslation ? "Exit parallel view" : "Read in parallel"}
+            aria-label={parallelTranslation ? "Exit parallel view" : "Read in parallel"}
+          >
+            <Columns2 className="h-3.5 w-3.5" />
+          </Button>
+
+          {/* Secondary translation selector — only in parallel mode */}
+          {parallelTranslation && (
+            <Select value={parallelTranslation} onValueChange={changeParallel}>
+              <SelectTrigger
+                className="h-8 w-auto min-w-[56px] max-w-[80px] border-0 bg-primary/5 hover:bg-primary/10 text-xs font-semibold text-primary px-2 flex-shrink-0 focus:ring-1"
+                aria-label="Select parallel translation"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FEATURED_TRANSLATIONS.map((t) => (
+                  <SelectItem key={t.short_name} value={t.short_name} className="text-sm">
+                    <span className="font-semibold">{t.short_name}</span>
+                    <span className="ml-2 text-muted-foreground text-xs">{t.full_name}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {/* Next */}

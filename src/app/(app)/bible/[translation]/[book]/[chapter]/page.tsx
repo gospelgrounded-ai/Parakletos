@@ -7,6 +7,7 @@ import { getBook } from "@/lib/bible-books";
 import BibleReaderClient from "@/components/bible/BibleReaderClient";
 
 type PageParams = { translation: string; book: string; chapter: string };
+type PageSearchParams = Record<string, string | string[] | undefined>;
 
 export async function generateMetadata({
   params,
@@ -22,10 +23,17 @@ export async function generateMetadata({
 
 export default async function BibleChapterPage({
   params,
+  searchParams,
 }: {
   params: Promise<PageParams>;
+  searchParams: Promise<PageSearchParams>;
 }) {
   const { translation, book: bookParam, chapter: chapterParam } = await params;
+  const resolvedSearch = await searchParams;
+  const parallelTranslation =
+    typeof resolvedSearch.parallel === "string" && resolvedSearch.parallel.length <= 10
+      ? resolvedSearch.parallel.toUpperCase()
+      : undefined;
 
   const bookNum = parseInt(bookParam, 10);
   const chapterNum = parseInt(chapterParam, 10);
@@ -94,6 +102,7 @@ export default async function BibleChapterPage({
       initialHighlights={initialHighlights}
       initialBookmarks={initialBookmarks}
       initialNotes={initialNotes}
+      parallelTranslation={parallelTranslation}
     />
   );
 }
