@@ -20,6 +20,9 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+const supported =
+  typeof window !== "undefined" && "speechSynthesis" in window;
+
 export default function AudioPlayer({
   verses,
   bookName,
@@ -31,15 +34,19 @@ export default function AudioPlayer({
   const [currentIdx, setCurrentIdx] = useState(0);
   const [speed, setSpeed] = useState<Speed>(1);
 
-  // Refs prevent stale closures inside SpeechSynthesisUtterance.onend callbacks
   const speedRef = useRef<Speed>(1);
   const isPlayingRef = useRef(false);
   const currentIdxRef = useRef(0);
+  // Track the active utterance so stale onend/onerror callbacks can be ignored
+  const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   const speakVerse = useCallback(
     (idx: number) => {
+      if (!supported) return;
+
       if (idx >= verses.length) {
         window.speechSynthesis.cancel();
+        activeUtteranceRef.current = null;
         isPlayingRef.current = false;
         setIsPlaying(false);
         setCurrentIdx(0);
@@ -48,7 +55,10 @@ export default function AudioPlayer({
         return;
       }
 
+      // Cancel current utterance — this fires onerror('canceled') on the old one,
+      // which we intentionally ignore via the stale-ref check below.
       window.speechSynthesis.cancel();
+
       currentIdxRef.current = idx;
       setCurrentIdx(idx);
       onReadingVerseChange(verses[idx].verse);
@@ -59,22 +69,55 @@ export default function AudioPlayer({
 
       const utterance = new SpeechSynthesisUtterance(stripHtml(verses[idx].text));
       utterance.rate = speedRef.current;
+      activeUtteranceRef.current = utterance;
+
       utterance.onend = () => {
+        // Ignore if a newer utterance has taken over
+        if (activeUtteranceRef.current !== utterance) return;
         if (isPlayingRef.current) speakVerse(idx + 1);
       };
-      utterance.onerror = () => {
+
+      utterance.onerror = (e) => {
+        // 'canceled' means we called cancel() intentionally — not a real error
+        if (e.error === "canceled") return;
+        if (activeUtteranceRef.current !== utterance) return;
         isPlayingRef.current = false;
         setIsPlaying(false);
+        activeUtteranceRef.current = null;
         onReadingVerseChange(null);
       };
+
       window.speechSynthesis.speak(utterance);
     },
     [verses, onReadingVerseChange]
   );
 
+  // Chrome bug: SpeechSynthesis silently stops after ~15 s without user interaction.
+  // Periodically pause+resume to keep it alive.
+  useEffect(() => {
+    if (!isPlaying || !supported) return;
+    const id = setInterval(() => {
+      if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      }
+    }, 10000);
+    return () => clearInterval(id);
+  }, [isPlaying]);
+
+  // Cancel on unmount
+  useEffect(() => {
+    return () => {
+      if (supported) window.speechSynthesis.cancel();
+      onReadingVerseChange(null);
+    };
+  }, [onReadingVerseChange]);
+
   function handlePlayPause() {
+    if (!supported) return;
     if (isPlaying) {
       window.speechSynthesis.cancel();
+      activeUtteranceRef.current = null;
       isPlayingRef.current = false;
       setIsPlaying(false);
       onReadingVerseChange(null);
@@ -87,11 +130,11 @@ export default function AudioPlayer({
 
   function handlePrev() {
     const idx = Math.max(0, currentIdxRef.current - 1);
-    currentIdxRef.current = idx;
-    setCurrentIdx(idx);
     if (isPlayingRef.current) {
       speakVerse(idx);
     } else {
+      currentIdxRef.current = idx;
+      setCurrentIdx(idx);
       onReadingVerseChange(verses[idx].verse);
       document
         .getElementById(`v${verses[idx].verse}`)
@@ -101,11 +144,11 @@ export default function AudioPlayer({
 
   function handleNext() {
     const idx = Math.min(verses.length - 1, currentIdxRef.current + 1);
-    currentIdxRef.current = idx;
-    setCurrentIdx(idx);
     if (isPlayingRef.current) {
       speakVerse(idx);
     } else {
+      currentIdxRef.current = idx;
+      setCurrentIdx(idx);
       onReadingVerseChange(verses[idx].verse);
       document
         .getElementById(`v${verses[idx].verse}`)
@@ -116,17 +159,8 @@ export default function AudioPlayer({
   function handleSpeed(s: Speed) {
     speedRef.current = s;
     setSpeed(s);
-    // Restart current verse at new speed
     if (isPlayingRef.current) speakVerse(currentIdxRef.current);
   }
-
-  // Cancel speech on unmount
-  useEffect(() => {
-    return () => {
-      window.speechSynthesis.cancel();
-      onReadingVerseChange(null);
-    };
-  }, [onReadingVerseChange]);
 
   const currentVerse = verses[currentIdx];
 
@@ -168,6 +202,7 @@ export default function AudioPlayer({
             size="sm"
             className="h-9 w-9 p-0 rounded-full"
             onClick={handlePlayPause}
+            disabled={!supported}
             aria-label={isPlaying ? "Pause" : "Play"}
           >
             {isPlaying ? (
@@ -189,13 +224,13 @@ export default function AudioPlayer({
         </div>
 
         {/* Speed selector */}
-        <div className="hidden sm:flex items-center gap-0.5 shrink-0">
+        <div className="flex items-center gap-0.5 shrink-0">
           {SPEEDS.map((s) => (
             <button
               key={s}
               onClick={() => handleSpeed(s)}
               className={cn(
-                "text-[10px] font-mono px-1.5 py-0.5 rounded transition-colors",
+                "text-[10px] font-mono px-1 sm:px-1.5 py-0.5 rounded transition-colors",
                 speed === s
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -212,7 +247,7 @@ export default function AudioPlayer({
           size="sm"
           className="h-8 w-8 p-0 shrink-0"
           onClick={() => {
-            window.speechSynthesis.cancel();
+            if (supported) window.speechSynthesis.cancel();
             onClose();
           }}
           aria-label="Close audio player"
@@ -220,6 +255,12 @@ export default function AudioPlayer({
           <X className="h-4 w-4" />
         </Button>
       </div>
+
+      {!supported && (
+        <p className="text-center text-xs text-muted-foreground pb-2">
+          Text-to-speech is not supported in this browser.
+        </p>
+      )}
     </div>
   );
 }
