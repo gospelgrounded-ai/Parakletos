@@ -149,23 +149,27 @@ function CrossRefsTab({
   return (
     <div className="divide-y">
       {refs.map(
-        (ref: { book: number; chapter: number; verse: number; text: string }, i: number) => {
-          const refBook = getBook(ref.book);
-          return (
-            <Link
-              key={i}
-              href={`/bible/${translation}/${ref.book}/${ref.chapter}`}
-              className="block px-4 py-3 hover:bg-muted/50 transition-colors"
-            >
-              <p className="text-xs font-semibold text-primary mb-1">
-                {refBook?.name} {ref.chapter}:{ref.verse}
-              </p>
-              <p className="text-xs text-muted-foreground font-serif leading-relaxed line-clamp-3">
-                {ref.text}
-              </p>
-            </Link>
-          );
-        }
+        (
+          ref: {
+            book: number;
+            chapter: number;
+            verse: number;
+            reference: string;
+            text: string;
+          },
+          i: number
+        ) => (
+          <Link
+            key={i}
+            href={`/bible/${translation}/${ref.book}/${ref.chapter}#v${ref.verse}`}
+            className="block px-4 py-3 hover:bg-muted/50 transition-colors"
+          >
+            <p className="text-xs font-semibold text-primary mb-1">{ref.reference}</p>
+            <p className="text-xs text-muted-foreground font-serif leading-relaxed line-clamp-3">
+              {ref.text}
+            </p>
+          </Link>
+        )
       )}
     </div>
   );
