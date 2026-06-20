@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, BookOpen, Calendar, Columns2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, BookOpen, Calendar, Columns2, Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getBook, BIBLE_BOOKS } from "@/lib/bible-books";
 import { cn } from "@/lib/utils";
@@ -63,6 +63,7 @@ function ChapterNavInner({ translation, book, chapter }: ChapterNavProps) {
   const planDay = Number(searchParams.get("day") ?? "0");
   const passageIdx = Number(searchParams.get("passage") ?? "0");
   const parallelTranslation = searchParams.get("parallel");
+  const interlinearMode = searchParams.get("interlinear") === "1";
 
   const { data: plan } = useSWR(
     planId ? `/api/reading-plans/${planId}` : null,
@@ -89,7 +90,9 @@ function ChapterNavInner({ translation, book, chapter }: ChapterNavProps) {
 
   function planUrl(entry: FlatPassage) {
     const base = `/bible/${translation}/${entry.book}/${entry.chapter}?planId=${planId}&day=${entry.day}&passage=${entry.passageIdx}`;
-    return parallelTranslation ? `${base}&parallel=${parallelTranslation}` : base;
+    if (parallelTranslation) return `${base}&parallel=${parallelTranslation}`;
+    if (interlinearMode) return `${base}&interlinear=1`;
+    return base;
   }
 
   function markDayComplete() {
@@ -117,8 +120,24 @@ function ChapterNavInner({ translation, book, chapter }: ChapterNavProps) {
     router.push(`/bible/${translation}/${book}/${chapter}?${params.toString()}`);
   }
 
+  function toggleInterlinear() {
+    const params = new URLSearchParams(searchParams.toString());
+    if (interlinearMode) {
+      params.delete("interlinear");
+    } else {
+      params.set("interlinear", "1");
+      params.delete("parallel"); // mutually exclusive
+    }
+    const qs = params.toString();
+    router.push(`/bible/${translation}/${book}/${chapter}${qs ? `?${qs}` : ""}`);
+  }
+
   function navigatePrev() {
-    const qs = parallelTranslation ? `?parallel=${parallelTranslation}` : "";
+    const qs = parallelTranslation
+      ? `?parallel=${parallelTranslation}`
+      : interlinearMode
+      ? "?interlinear=1"
+      : "";
     if (inPlanMode) {
       if (prevEntry) router.push(planUrl(prevEntry));
     } else {
@@ -132,7 +151,11 @@ function ChapterNavInner({ translation, book, chapter }: ChapterNavProps) {
   }
 
   function navigateNext() {
-    const qs = parallelTranslation ? `?parallel=${parallelTranslation}` : "";
+    const qs = parallelTranslation
+      ? `?parallel=${parallelTranslation}`
+      : interlinearMode
+      ? "?interlinear=1"
+      : "";
     if (inPlanMode) {
       if (nextEntry) {
         // Crossing into a new day — mark the current day complete
@@ -189,6 +212,9 @@ function ChapterNavInner({ translation, book, chapter }: ChapterNavProps) {
     }
     if (parallelTranslation) {
       p.set("parallel", parallelTranslation);
+    }
+    if (interlinearMode) {
+      p.set("interlinear", "1");
     }
     return p.toString() || undefined;
   })();
@@ -264,6 +290,23 @@ function ChapterNavInner({ translation, book, chapter }: ChapterNavProps) {
             aria-label={parallelTranslation ? "Exit parallel view" : "Read in parallel"}
           >
             <Columns2 className="h-3.5 w-3.5" />
+          </Button>
+
+          {/* Interlinear toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleInterlinear}
+            className={cn(
+              "h-8 w-8 p-0 flex-shrink-0",
+              interlinearMode
+                ? "text-primary bg-primary/10 hover:bg-primary/20"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            title={interlinearMode ? "Exit interlinear view" : "Show Greek/Hebrew interlinear"}
+            aria-label={interlinearMode ? "Exit interlinear view" : "Show Greek/Hebrew interlinear"}
+          >
+            <Languages className="h-3.5 w-3.5" />
           </Button>
 
           {/* Secondary translation selector — only in parallel mode */}

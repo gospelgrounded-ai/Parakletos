@@ -6,6 +6,7 @@ import { type HighlightColor } from "@/types";
 import ChapterNav from "./ChapterNav";
 import VerseList from "./VerseList";
 import ParallelVerseList from "./ParallelVerseList";
+import InterlinearVerseList from "./InterlinearVerseList";
 import VerseActionsBar from "./VerseActionsBar";
 import StudyPanel from "./StudyPanel";
 
@@ -18,6 +19,7 @@ interface BibleReaderClientProps {
   initialBookmarks: Array<{ id: string; verse: number; label?: string | null }>;
   initialNotes: Array<{ id: string; verse: number; content: string }>;
   parallelTranslation?: string;
+  interlinearMode?: boolean;
 }
 
 export default function BibleReaderClient({
@@ -29,6 +31,7 @@ export default function BibleReaderClient({
   initialBookmarks,
   initialNotes,
   parallelTranslation,
+  interlinearMode,
 }: BibleReaderClientProps) {
   const [selectedVerse, setSelectedVerse] = useState<number | null>(null);
   const [highlights, setHighlights] = useState<Map<number, { id: string; color: string }>>(
@@ -203,10 +206,21 @@ export default function BibleReaderClient({
             className={
               parallelTranslation
                 ? "max-w-5xl mx-auto px-4 sm:px-6 py-8 pb-28"
+                : interlinearMode
+                ? "max-w-3xl mx-auto px-4 sm:px-6 py-8 pb-28"
                 : "max-w-2xl mx-auto px-4 sm:px-8 py-8 pb-28"
             }
           >
-            {parallelTranslation ? (
+            {interlinearMode ? (
+              <InterlinearVerseList
+                book={book}
+                chapter={chapter}
+                selectedVerse={selectedVerse}
+                onVerseClick={(verse) =>
+                  setSelectedVerse(verse === selectedVerse ? null : verse)
+                }
+              />
+            ) : parallelTranslation ? (
               <ParallelVerseList
                 verses={verses}
                 translation={translation}

@@ -30,8 +30,11 @@ export default async function BibleChapterPage({
 }) {
   const { translation, book: bookParam, chapter: chapterParam } = await params;
   const resolvedSearch = await searchParams;
+  const interlinearMode = resolvedSearch.interlinear === "1";
   const parallelTranslation =
-    typeof resolvedSearch.parallel === "string" && resolvedSearch.parallel.length <= 10
+    !interlinearMode &&
+    typeof resolvedSearch.parallel === "string" &&
+    resolvedSearch.parallel.length <= 10
       ? resolvedSearch.parallel.toUpperCase()
       : undefined;
 
@@ -103,6 +106,7 @@ export default async function BibleChapterPage({
       initialBookmarks={initialBookmarks}
       initialNotes={initialNotes}
       parallelTranslation={parallelTranslation}
+      interlinearMode={interlinearMode}
     />
   );
 }
