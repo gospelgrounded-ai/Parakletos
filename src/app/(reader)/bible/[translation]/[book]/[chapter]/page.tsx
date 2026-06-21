@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { fetchChapter } from "@/lib/bible-api";
@@ -54,13 +55,42 @@ export default async function BibleChapterPage({
 
   // Fetch Bible text (server-side, cached by bolls.life)
   let verses: Array<{ pk: number; verse: number; text: string }> = [];
+  let translationUnavailable = false;
   try {
     verses = await fetchChapter(translation.toUpperCase(), bookNum, chapterNum);
   } catch {
-    notFound();
+    translationUnavailable = true;
   }
 
-  if (!verses || verses.length === 0) notFound();
+  if (!translationUnavailable && (!verses || verses.length === 0)) notFound();
+
+  if (translationUnavailable) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center gap-4">
+        <p className="text-4xl">📖</p>
+        <h1 className="text-xl font-semibold">Translation unavailable</h1>
+        <p className="text-muted-foreground max-w-sm text-sm">
+          <strong>{translation.toUpperCase()}</strong> could not be loaded for{" "}
+          {bookInfo.name} {chapterNum}. It may be temporarily unavailable on
+          Bolls.life, or the translation code may have changed.
+        </p>
+        <div className="flex gap-3 mt-2">
+          <Link
+            href={`/bible/KJV/${bookNum}/${chapterNum}`}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Read in KJV
+          </Link>
+          <Link
+            href={`/bible/WEB/${bookNum}/${chapterNum}`}
+            className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted"
+          >
+            Read in WEB
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // Fetch user annotations (only if logged in)
   const session = await auth();
