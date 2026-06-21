@@ -7,12 +7,16 @@ export async function GET() {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const notes = await db.sermonNote.findMany({
-    where: { userId: session.user.id },
-    orderBy: { updatedAt: "desc" },
-    select: { id: true, title: true, date: true, speaker: true, location: true, notes: true, updatedAt: true },
-  });
-  return NextResponse.json(notes);
+  try {
+    const notes = await db.sermonNote.findMany({
+      where: { userId: session.user.id },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, title: true, date: true, speaker: true, location: true, notes: true, updatedAt: true },
+    });
+    return NextResponse.json(notes);
+  } catch {
+    return NextResponse.json([]);
+  }
 }
 
 export async function POST(request: Request) {

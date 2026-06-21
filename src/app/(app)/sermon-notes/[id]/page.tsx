@@ -12,10 +12,15 @@ export default async function SermonNotePage({
   if (!session?.user?.id) redirect("/login");
 
   const { id } = await params;
-  const note = await db.sermonNote.findFirst({
-    where: { id, userId: session.user.id },
-    select: { id: true, title: true, date: true, speaker: true, location: true, notes: true },
-  });
+  let note = null;
+  try {
+    note = await db.sermonNote.findFirst({
+      where: { id, userId: session.user.id },
+      select: { id: true, title: true, date: true, speaker: true, location: true, notes: true },
+    });
+  } catch {
+    redirect("/sermon-notes");
+  }
 
   if (!note) redirect("/sermon-notes");
 

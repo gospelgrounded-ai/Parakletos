@@ -164,7 +164,21 @@ export default function AudioRecorder({ onRecordingChange }: Props) {
           >
             <Trash2 className="h-4 w-4" />
           </Button>
-          <Button size="sm" variant="outline" onClick={start} className="gap-2 ml-auto">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              // Revoke old URL before starting a new recording
+              audioRef.current?.pause();
+              audioRef.current = null;
+              if (audioUrl) URL.revokeObjectURL(audioUrl);
+              setAudioUrl(null);
+              blobRef.current = null;
+              setIsPlaying(false);
+              await start();
+            }}
+            className="gap-2 ml-auto"
+          >
             <Mic className="h-4 w-4 text-rose-500" />
             Re-record
           </Button>
