@@ -2,15 +2,15 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { BookOpen, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { BookOpen, ChevronLeft, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { detectScriptureRefs } from "@/lib/detect-scriptures";
 import AudioRecorder from "./AudioRecorder";
+import ScriptureCard from "./ScriptureCard";
 
 interface SermonNote {
   id: string;
@@ -202,18 +202,11 @@ export default function SermonNoteEditor({ note }: Props) {
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Notes</Label>
 
-            {/* Mobile: scripture chips appear above the textarea so they're always visible */}
+            {/* Mobile: scripture cards appear above the textarea */}
             {detectedRefs.length > 0 && (
-              <div className="lg:hidden flex flex-wrap gap-1.5 pb-1">
+              <div className="lg:hidden space-y-2 pb-1">
                 {detectedRefs.map((ref) => (
-                  <Link
-                    key={ref.key}
-                    href={`/bible/KJV/${ref.book}/${ref.chapter}${ref.verse ? `#v${ref.verse}` : ""}`}
-                    className="inline-flex items-center gap-1 rounded-full border border-primary/40 px-2.5 py-0.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
-                  >
-                    <BookOpen className="h-3 w-3" />
-                    {ref.display}
-                  </Link>
+                  <ScriptureCard key={ref.key} scripture={ref} />
                 ))}
               </div>
             )}
@@ -240,22 +233,14 @@ export default function SermonNoteEditor({ note }: Props) {
             {detectedRefs.length === 0 ? (
               <p className="text-xs text-muted-foreground leading-relaxed">
                 As you type, scripture references like &ldquo;John 3:16&rdquo; or
-                &ldquo;Romans 8&rdquo; will appear here as links.
+                &ldquo;Romans 8&rdquo; will appear here with the verse text.
               </p>
             ) : (
-              <ul className="space-y-1">
+              <div className="space-y-2">
                 {detectedRefs.map((ref) => (
-                  <li key={ref.key}>
-                    <Link
-                      href={`/bible/KJV/${ref.book}/${ref.chapter}${ref.verse ? `#v${ref.verse}` : ""}`}
-                      className="flex items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-muted transition-colors group"
-                    >
-                      <span className="font-medium">{ref.display}</span>
-                      <ChevronRight className="h-3 w-3 text-muted-foreground group-hover:text-foreground transition-colors" />
-                    </Link>
-                  </li>
+                  <ScriptureCard key={ref.key} scripture={ref} />
                 ))}
-              </ul>
+              </div>
             )}
           </div>
         </aside>
