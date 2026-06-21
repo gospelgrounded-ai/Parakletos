@@ -62,7 +62,7 @@ export default async function BibleChapterPage({
     translationUnavailable = true;
   }
 
-  if (!translationUnavailable && (!verses || verses.length === 0)) notFound();
+  if (!verses || verses.length === 0) translationUnavailable = true;
 
   if (translationUnavailable) {
     return (
