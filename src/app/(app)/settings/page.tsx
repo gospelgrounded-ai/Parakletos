@@ -4,9 +4,7 @@ import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { Check, Save } from "lucide-react";
-
-const TRANSLATIONS = ["KJV", "NKJV", "WEB", "ASV", "YLT", "BBE"] as const;
-type Translation = (typeof TRANSLATIONS)[number];
+import { FEATURED_TRANSLATIONS } from "@/lib/bible-api";
 
 const FONT_FAMILIES = [
   { value: "serif", label: "Serif (Georgia)" },
@@ -23,7 +21,7 @@ const THEMES = [
 interface Settings {
   fontSize: number;
   fontFamily: FontFamily;
-  defaultTranslation: Translation;
+  defaultTranslation: string;
 }
 
 const SETTINGS_KEY = "parakletos-settings";
@@ -143,7 +141,7 @@ export default function SettingsPage() {
                 onChange={(e) =>
                   setSettings((s) => ({
                     ...s,
-                    defaultTranslation: e.target.value as Translation,
+                    defaultTranslation: e.target.value,
                   }))
                 }
                 className={cn(
@@ -151,9 +149,9 @@ export default function SettingsPage() {
                   "focus:outline-none focus:ring-2 focus:ring-primary/50"
                 )}
               >
-                {TRANSLATIONS.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
+                {FEATURED_TRANSLATIONS.map(({ short_name, full_name }) => (
+                  <option key={short_name} value={short_name}>
+                    {short_name} – {full_name}
                   </option>
                 ))}
               </select>

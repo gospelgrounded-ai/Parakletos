@@ -150,11 +150,25 @@ export async function fetchBookList(
   return res.json();
 }
 
-// Popular translations displayed prominently
+// Popular translations displayed prominently in the Bible reader and settings
 export const FEATURED_TRANSLATIONS = [
-  { short_name: "KJV", full_name: "King James Version", language: "English" },
-  { short_name: "NKJV", full_name: "New King James Version", language: "English" },
-  { short_name: "WEB", full_name: "World English Bible", language: "English" },
-  { short_name: "ASV", full_name: "American Standard Version", language: "English" },
-  { short_name: "YLT", full_name: "Young's Literal Translation", language: "English" },
+  { short_name: "KJV",  full_name: "King James Version",               language: "English" },
+  { short_name: "NKJV", full_name: "New King James Version",           language: "English" },
+  { short_name: "WEB",  full_name: "World English Bible",              language: "English" },
+  { short_name: "ASV",  full_name: "American Standard Version",        language: "English" },
+  { short_name: "YLT",  full_name: "Young's Literal Translation",      language: "English" },
+  { short_name: "BBE",  full_name: "Bible in Basic English",           language: "English" },
+  { short_name: "NET",  full_name: "New English Translation",          language: "English" },
+  { short_name: "DBY",  full_name: "Darby Bible",                      language: "English" },
+  { short_name: "WBS",  full_name: "Webster's Bible (1833)",           language: "English" },
+  { short_name: "RV",   full_name: "Revised Version (1885)",           language: "English" },
+  { short_name: "LITV", full_name: "Literal Translation (Green)",      language: "English" },
+  { short_name: "MKJV", full_name: "Modern King James Version",        language: "English" },
+  { short_name: "NHEB", full_name: "New Heart English Bible",          language: "English" },
+  { short_name: "ISV",  full_name: "International Standard Version",   language: "English" },
+  { short_name: "NMB",  full_name: "New Matthew Bible",                language: "English" },
+  { short_name: "RNKJV", full_name: "Restored Name King James Version", language: "English" },
+  { short_name: "TMB",  full_name: "Third Millennium Bible",           language: "English" },
+  { short_name: "TYN",  full_name: "Tyndale Bible (1526)",             language: "English" },
+  { short_name: "WEBBE", full_name: "World English Bible, British Edition", language: "English" },
 ];
