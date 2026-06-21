@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, BookOpen, Calendar, Columns2, Languages, Volume2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, BookOpen, Calendar, Columns2, Languages, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getBook, BIBLE_BOOKS } from "@/lib/bible-books";
 import { cn } from "@/lib/utils";
@@ -265,9 +265,11 @@ function ChapterNavInner({ translation, book, chapter, audioActive, onAudioToggl
             size="sm"
             onClick={() => setSelectorOpen(true)}
             className="flex items-center gap-2 font-medium text-sm sm:text-base hover:bg-muted/60 px-3 rounded-lg"
+            aria-label="Open book and chapter selector"
           >
             <BookOpen className="h-4 w-4 text-primary/70 shrink-0" />
             <span className="truncate">{bookName} {chapter}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           </Button>
 
           <TranslationSelector

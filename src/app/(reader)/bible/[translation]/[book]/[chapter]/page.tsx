@@ -107,6 +107,7 @@ export default async function BibleChapterPage({
       initialNotes={initialNotes}
       parallelTranslation={parallelTranslation}
       interlinearMode={interlinearMode}
+      isAuthenticated={!!session?.user?.id}
     />
   );
 }

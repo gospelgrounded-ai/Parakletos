@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { type HighlightColor } from "@/types";
 import { getBook } from "@/lib/bible-books";
@@ -22,6 +23,7 @@ interface BibleReaderClientProps {
   initialNotes: Array<{ id: string; verse: number; content: string }>;
   parallelTranslation?: string;
   interlinearMode?: boolean;
+  isAuthenticated?: boolean;
 }
 
 export default function BibleReaderClient({
@@ -34,6 +36,7 @@ export default function BibleReaderClient({
   initialNotes,
   parallelTranslation,
   interlinearMode,
+  isAuthenticated = true,
 }: BibleReaderClientProps) {
   const [selectedVerse, setSelectedVerse] = useState<number | null>(null);
   const [highlights, setHighlights] = useState<Map<number, { id: string; color: string }>>(
@@ -262,6 +265,33 @@ export default function BibleReaderClient({
                   setSelectedVerse(verse === selectedVerse ? null : verse)
                 }
               />
+            )}
+
+            {/* End-of-chapter CTA for unauthenticated readers */}
+            {!isAuthenticated && (
+              <div className="mt-12 mb-4 rounded-2xl border bg-card p-6 text-center shadow-sm">
+                <p className="text-lg font-serif font-semibold mb-1">
+                  Enjoyed reading {bookName} {chapter}?
+                </p>
+                <p className="text-sm text-muted-foreground mb-5 max-w-xs mx-auto leading-relaxed">
+                  Create a free account to highlight verses, take notes, and
+                  pick up where you left off — across all your devices.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Link
+                    href="/register"
+                    className="bg-primary text-primary-foreground px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                  >
+                    Create free account
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="border px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+                  >
+                    Sign in
+                  </Link>
+                </div>
+              </div>
             )}
           </div>
         </div>
