@@ -151,19 +151,33 @@ export async function fetchBookList(
 }
 
 // Ordered list of English translation codes to pin at the top of selectors.
-// Resolved against the live Bolls.life list — codes absent from Bolls.life
-// simply won't appear. Full names come from the API, not hardcoded here.
+// Resolved against the live Bolls.life list when available; full names come
+// from FALLBACK_TRANSLATIONS below when the API is unreachable.
 export const FEATURED_TRANSLATION_CODES = [
   "KJV", "WEB", "ASV", "YLT", "BBE", "DBY", "WBS",
   "LITV", "MKJV", "NHEB", "RNKJV", "TMB", "TYN", "WEBBE",
   "NET", "RV", "ISV",
 ];
 
-// Minimal fallback used when the Bolls.life translations API is unreachable.
+// Comprehensive curated list used when the Bolls.life API is unreachable.
+// All codes here are public-domain English translations available on Bolls.life.
+// NKJV is intentionally excluded — it is copyrighted and not on Bolls.life.
 export const FALLBACK_TRANSLATIONS: BollsTranslation[] = [
-  { short_name: "KJV",  full_name: "King James Version",          language: "English" },
-  { short_name: "WEB",  full_name: "World English Bible",         language: "English" },
-  { short_name: "ASV",  full_name: "American Standard Version",   language: "English" },
-  { short_name: "YLT",  full_name: "Young's Literal Translation", language: "English" },
-  { short_name: "BBE",  full_name: "Bible in Basic English",      language: "English" },
+  { short_name: "KJV",   full_name: "King James Version",                      language: "English" },
+  { short_name: "WEB",   full_name: "World English Bible",                     language: "English" },
+  { short_name: "ASV",   full_name: "American Standard Version",               language: "English" },
+  { short_name: "YLT",   full_name: "Young's Literal Translation",             language: "English" },
+  { short_name: "BBE",   full_name: "Bible in Basic English",                  language: "English" },
+  { short_name: "DBY",   full_name: "Darby Bible",                             language: "English" },
+  { short_name: "WBS",   full_name: "Webster's Bible (1833)",                  language: "English" },
+  { short_name: "LITV",  full_name: "Green's Literal Translation",             language: "English" },
+  { short_name: "MKJV",  full_name: "Modern King James Version",               language: "English" },
+  { short_name: "NHEB",  full_name: "New Heart English Bible",                 language: "English" },
+  { short_name: "RNKJV", full_name: "Restored Name King James Version",        language: "English" },
+  { short_name: "TMB",   full_name: "Third Millennium Bible",                  language: "English" },
+  { short_name: "TYN",   full_name: "Tyndale Bible (1526)",                    language: "English" },
+  { short_name: "WEBBE", full_name: "World English Bible, British Edition",    language: "English" },
+  { short_name: "NET",   full_name: "New English Translation",                 language: "English" },
+  { short_name: "RV",    full_name: "Revised Version (1885)",                  language: "English" },
+  { short_name: "ISV",   full_name: "International Standard Version",          language: "English" },
 ];
