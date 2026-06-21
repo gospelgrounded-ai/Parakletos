@@ -9,22 +9,31 @@ import {
   SelectGroup,
   SelectItem,
   SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
-  SelectSeparator,
 } from "@/components/ui/select";
-import { FEATURED_TRANSLATIONS } from "@/lib/bible-api";
-import { BollsLanguageGroup } from "@/lib/bible-api";
+import {
+  FEATURED_TRANSLATION_CODES,
+  FALLBACK_TRANSLATIONS,
+  type BollsTranslation,
+  type BollsLanguageGroup,
+} from "@/lib/bible-api";
 
 interface TranslationSelectorProps {
   currentTranslation: string;
   book: number;
   chapter: number;
-  /** Optional query-string to append when navigating (e.g., plan context). */
   extraSearch?: string;
 }
 
+interface TranslationsResponse {
+  english: BollsTranslation[];
+  groups: BollsLanguageGroup[];
+}
+
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const featuredSet = new Set(FEATURED_TRANSLATION_CODES);
 
 export default function TranslationSelector({
   currentTranslation,
@@ -33,25 +42,27 @@ export default function TranslationSelector({
   extraSearch,
 }: TranslationSelectorProps) {
   const router = useRouter();
-  const { data } = useSWR<{ groups: BollsLanguageGroup[] }>(
+  const { data } = useSWR<TranslationsResponse>(
     "/api/bible/translations",
     fetcher,
     { revalidateOnFocus: false }
   );
 
+  const english = data?.english ?? FALLBACK_TRANSLATIONS;
+  const groups = data?.groups ?? [];
+
+  // Popular = featured codes that actually exist in the API response (in order)
+  const popular = FEATURED_TRANSLATION_CODES
+    .map((code) => english.find((t) => t.short_name === code))
+    .filter((t): t is BollsTranslation => t !== undefined);
+
+  // Everything else English that isn't in our preferred list
+  const moreEnglish = english.filter((t) => !featuredSet.has(t.short_name));
+
   function handleSelect(value: string) {
     const base = `/bible/${value}/${book}/${chapter}`;
     router.push(extraSearch ? `${base}?${extraSearch}` : base);
   }
-
-  // All non-featured translations grouped by language
-  const featuredCodes = new Set(FEATURED_TRANSLATIONS.map((t) => t.short_name));
-  const otherGroups = (data?.groups ?? [])
-    .map((group) => ({
-      ...group,
-      translations: group.translations.filter((t) => !featuredCodes.has(t.short_name)),
-    }))
-    .filter((g) => g.translations.length > 0);
 
   return (
     <Select value={currentTranslation} onValueChange={handleSelect}>
@@ -68,7 +79,7 @@ export default function TranslationSelector({
           <SelectLabel className="text-xs text-muted-foreground uppercase tracking-wider px-2 py-1.5">
             Popular
           </SelectLabel>
-          {FEATURED_TRANSLATIONS.map((t) => (
+          {popular.map((t) => (
             <SelectItem key={t.short_name} value={t.short_name} className="text-sm">
               <span className="font-semibold">{t.short_name}</span>
               <span className="ml-2 text-muted-foreground text-xs">{t.full_name}</span>
@@ -76,20 +87,40 @@ export default function TranslationSelector({
           ))}
         </SelectGroup>
 
-        {otherGroups.length > 0 && <SelectSeparator />}
+        {moreEnglish.length > 0 && (
+          <>
+            <SelectSeparator />
+            <SelectGroup>
+              <SelectLabel className="text-xs text-muted-foreground uppercase tracking-wider px-2 py-1.5">
+                More English
+              </SelectLabel>
+              {moreEnglish.map((t) => (
+                <SelectItem key={t.short_name} value={t.short_name} className="text-sm">
+                  <span className="font-semibold">{t.short_name}</span>
+                  <span className="ml-2 text-muted-foreground text-xs">{t.full_name}</span>
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </>
+        )}
 
-        {otherGroups.map((group) => (
-          <SelectGroup key={group.language}>
-            <SelectLabel className="text-xs text-muted-foreground uppercase tracking-wider px-2 py-1.5">
-              {group.language}
-            </SelectLabel>
-            {group.translations.map((t) => (
-              <SelectItem key={t.short_name} value={t.short_name} className="text-sm">
-                <span className="font-semibold">{t.short_name}</span>
-                <span className="ml-2 text-muted-foreground text-xs">{t.full_name}</span>
-              </SelectItem>
-            ))}
-          </SelectGroup>
+        {groups.map((group) => (
+          group.translations.length > 0 && (
+            <span key={group.language}>
+              <SelectSeparator />
+              <SelectGroup>
+                <SelectLabel className="text-xs text-muted-foreground uppercase tracking-wider px-2 py-1.5">
+                  {group.language}
+                </SelectLabel>
+                {group.translations.map((t) => (
+                  <SelectItem key={t.short_name} value={t.short_name} className="text-sm">
+                    <span className="font-semibold">{t.short_name}</span>
+                    <span className="ml-2 text-muted-foreground text-xs">{t.full_name}</span>
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </span>
+          )
         ))}
       </SelectContent>
     </Select>

@@ -2,9 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
+import useSWR from "swr";
 import { cn } from "@/lib/utils";
 import { Check, Save } from "lucide-react";
-import { FEATURED_TRANSLATIONS } from "@/lib/bible-api";
+import { FALLBACK_TRANSLATIONS, type BollsTranslation, type BollsLanguageGroup } from "@/lib/bible-api";
+
+interface TranslationsResponse {
+  english: BollsTranslation[];
+  groups: BollsLanguageGroup[];
+}
+
+const translationsFetcher = (url: string) => fetch(url).then((r) => r.json());
 
 const FONT_FAMILIES = [
   { value: "serif", label: "Serif (Georgia)" },
@@ -41,6 +49,12 @@ function loadSettings(): Settings {
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
+  const { data: translationsData } = useSWR<TranslationsResponse>(
+    "/api/bible/translations",
+    translationsFetcher,
+    { revalidateOnFocus: false }
+  );
+  const availableTranslations = translationsData?.english ?? FALLBACK_TRANSLATIONS;
   const [settings, setSettings] = useState<Settings>({
     fontSize: 18,
     fontFamily: "serif",
@@ -149,7 +163,7 @@ export default function SettingsPage() {
                   "focus:outline-none focus:ring-2 focus:ring-primary/50"
                 )}
               >
-                {FEATURED_TRANSLATIONS.map(({ short_name, full_name }) => (
+                {availableTranslations.map(({ short_name, full_name }) => (
                   <option key={short_name} value={short_name}>
                     {short_name} – {full_name}
                   </option>

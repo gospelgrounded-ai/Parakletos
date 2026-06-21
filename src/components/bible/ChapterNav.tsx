@@ -17,8 +17,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FEATURED_TRANSLATIONS } from "@/lib/bible-api";
+import {
+  FALLBACK_TRANSLATIONS,
+  type BollsTranslation,
+  type BollsLanguageGroup,
+} from "@/lib/bible-api";
 import useSWR from "swr";
+
+interface TranslationsResponse {
+  english: BollsTranslation[];
+  groups: BollsLanguageGroup[];
+}
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -80,6 +89,13 @@ function ChapterNavInner({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [selectorOpen, setSelectorOpen] = useState(false);
+
+  const { data: translationsData } = useSWR<TranslationsResponse>(
+    "/api/bible/translations",
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+  const availableTranslations = translationsData?.english ?? FALLBACK_TRANSLATIONS;
 
   const planId = searchParams.get("planId");
   const planDay = Number(searchParams.get("day") ?? "0");
@@ -374,7 +390,7 @@ function ChapterNavInner({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {FEATURED_TRANSLATIONS.map((t) => (
+                {availableTranslations.map((t) => (
                   <SelectItem key={t.short_name} value={t.short_name} className="text-sm">
                     <span className="font-semibold">{t.short_name}</span>
                     <span className="ml-2 text-muted-foreground text-xs">{t.full_name}</span>

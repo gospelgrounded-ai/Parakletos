@@ -7,7 +7,11 @@ import { Search, BookOpen, ArrowRight, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BIBLE_BOOKS } from "@/lib/bible-books";
-import { FEATURED_TRANSLATIONS } from "@/lib/bible-api";
+import useSWR from "swr";
+import { FALLBACK_TRANSLATIONS, type BollsTranslation, type BollsLanguageGroup } from "@/lib/bible-api";
+
+interface TranslationsResponse { english: BollsTranslation[]; groups: BollsLanguageGroup[]; }
+const translationsFetcher = (url: string) => fetch(url).then((r) => r.json());
 
 // ─── Bible reference parser ────────────────────────────────────────────────────
 
@@ -128,6 +132,13 @@ export default function SearchInterface() {
   const initialQ = searchParams.get("q") ?? "";
   const initialT = searchParams.get("t") ?? "KJV";
 
+  const { data: translationsData } = useSWR<TranslationsResponse>(
+    "/api/bible/translations",
+    translationsFetcher,
+    { revalidateOnFocus: false }
+  );
+  const availableTranslations = translationsData?.english ?? FALLBACK_TRANSLATIONS;
+
   const [query, setQuery] = useState(initialQ);
   const [translation, setTranslation] = useState(initialT);
   const [testament, setTestament] = useState<Testament>("all");
@@ -241,7 +252,7 @@ export default function SearchInterface() {
               onChange={(e) => setTranslation(e.target.value)}
               className="rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
-              {FEATURED_TRANSLATIONS.map((t) => (
+              {availableTranslations.map((t: BollsTranslation) => (
                 <option key={t.short_name} value={t.short_name}>
                   {t.short_name} — {t.full_name}
                 </option>

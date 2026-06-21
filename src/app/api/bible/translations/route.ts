@@ -1,19 +1,48 @@
 import { NextResponse } from "next/server";
-import { fetchTranslations } from "@/lib/bible-api";
+import {
+  fetchTranslations,
+  FEATURED_TRANSLATION_CODES,
+  FALLBACK_TRANSLATIONS,
+  type BollsTranslation,
+} from "@/lib/bible-api";
 
 export async function GET() {
   try {
-    const translations = await fetchTranslations();
-    return NextResponse.json(translations, {
-      headers: {
-        "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600",
-      },
+    const rawGroups = await fetchTranslations();
+
+    // Find the English group — identified by containing "KJV"
+    const englishGroup = rawGroups.find((g) =>
+      g.translations.some((t) => t.short_name === "KJV")
+    );
+    const englishTranslations: BollsTranslation[] =
+      englishGroup?.translations ?? FALLBACK_TRANSLATIONS;
+
+    // Non-English groups
+    const otherGroups = rawGroups.filter((g) => g !== englishGroup);
+
+    // Sort English: preferred codes first (in declared order), then alphabetical
+    const preferredRank = new Map(
+      FEATURED_TRANSLATION_CODES.map((code, i) => [code, i])
+    );
+    const sorted = [...englishTranslations].sort((a, b) => {
+      const ai = preferredRank.get(a.short_name) ?? Infinity;
+      const bi = preferredRank.get(b.short_name) ?? Infinity;
+      if (ai !== bi) return ai - bi;
+      return a.short_name.localeCompare(b.short_name);
     });
-  } catch (error) {
-    console.error("[BIBLE_TRANSLATIONS]", error);
+
     return NextResponse.json(
-      { error: "Failed to fetch Bible translations" },
-      { status: 500 }
+      { english: sorted, groups: otherGroups },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600",
+        },
+      }
+    );
+  } catch {
+    return NextResponse.json(
+      { english: FALLBACK_TRANSLATIONS, groups: [] },
+      { headers: { "Cache-Control": "public, s-maxage=300" } }
     );
   }
 }

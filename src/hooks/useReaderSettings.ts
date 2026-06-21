@@ -10,9 +10,9 @@ export interface ReaderSettings {
 }
 
 const STORAGE_KEY = "parakletos-settings";
-const DEFAULTS: ReaderSettings = { fontSize: 125, fontFamily: "serif" };
-const MIN_SIZE = 80;
-const MAX_SIZE = 175;
+const DEFAULTS: ReaderSettings = { fontSize: 100, fontFamily: "serif" };
+const MIN_SIZE = 64;
+const MAX_SIZE = 140;
 const STEP = 8;
 
 function load(): ReaderSettings {
