@@ -154,16 +154,15 @@ export async function fetchBookList(
 // Resolved against the live Bolls.life list when available; full names come
 // from FALLBACK_TRANSLATIONS below when the API is unreachable.
 export const FEATURED_TRANSLATION_CODES = [
-  "KJV", "WEB", "ASV", "YLT", "BBE", "DBY", "WBS",
+  "KJV", "NKJV", "WEB", "ASV", "YLT", "BBE", "DBY", "WBS",
   "LITV", "MKJV", "NHEB", "RNKJV", "TMB", "TYN", "WEBBE",
   "NET", "RV", "ISV",
 ];
 
 // Comprehensive curated list used when the Bolls.life API is unreachable.
-// All codes here are public-domain English translations available on Bolls.life.
-// NKJV is intentionally excluded — it is copyrighted and not on Bolls.life.
 export const FALLBACK_TRANSLATIONS: BollsTranslation[] = [
   { short_name: "KJV",   full_name: "King James Version",                      language: "English" },
+  { short_name: "NKJV",  full_name: "New King James Version",                  language: "English" },
   { short_name: "WEB",   full_name: "World English Bible",                     language: "English" },
   { short_name: "ASV",   full_name: "American Standard Version",               language: "English" },
   { short_name: "YLT",   full_name: "Young's Literal Translation",             language: "English" },
