@@ -49,13 +49,20 @@ export function cleanVerseText(raw: string): string {
 export async function fetchTranslations(): Promise<BollsLanguageGroup[]> {
   const res = await fetch(
     `${BOLLS_BASE}/static/bolls/app/views/languages-and-translations.json`,
-    FETCH_OPTIONS
+    {
+      next: { revalidate: 86400 },
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        Accept: "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+        Referer: "https://bolls.life/",
+      },
+    }
   );
   if (!res.ok) throw new Error("Failed to fetch translations");
   const data = await res.json();
-  // bolls.life returns an object with language keys
   if (Array.isArray(data)) return data;
-  // Transform object format to array
   return Object.entries(data).map(([language, translations]) => ({
     language,
     translations: (translations as BollsTranslation[]) || [],
@@ -153,30 +160,110 @@ export async function fetchBookList(
 // Ordered list of English translation codes to pin at the top of selectors.
 // Resolved against the live Bolls.life list when available; full names come
 // from FALLBACK_TRANSLATIONS below when the API is unreachable.
+// English translations to pin at the top of the selector (in display order).
 export const FEATURED_TRANSLATION_CODES = [
   "KJV", "NKJV", "WEB", "ASV", "YLT", "BBE", "DBY", "WBS",
-  "LITV", "MKJV", "NHEB", "RNKJV", "TMB", "TYN", "WEBBE",
-  "NET", "RV", "ISV",
+  "LITV", "MKJV", "NHEB", "RNKJV", "NMB", "TMB", "TYN", "WEBBE",
+  "NET", "RV", "ISV", "AKJV", "KJ2000", "CKJV", "KJV1611", "LXXE",
 ];
 
-// Comprehensive curated list used when the Bolls.life API is unreachable.
-export const FALLBACK_TRANSLATIONS: BollsTranslation[] = [
-  { short_name: "KJV",   full_name: "King James Version",                      language: "English" },
-  { short_name: "NKJV",  full_name: "New King James Version",                  language: "English" },
-  { short_name: "WEB",   full_name: "World English Bible",                     language: "English" },
-  { short_name: "ASV",   full_name: "American Standard Version",               language: "English" },
-  { short_name: "YLT",   full_name: "Young's Literal Translation",             language: "English" },
-  { short_name: "BBE",   full_name: "Bible in Basic English",                  language: "English" },
-  { short_name: "DBY",   full_name: "Darby Bible",                             language: "English" },
-  { short_name: "WBS",   full_name: "Webster's Bible (1833)",                  language: "English" },
-  { short_name: "LITV",  full_name: "Green's Literal Translation",             language: "English" },
-  { short_name: "MKJV",  full_name: "Modern King James Version",               language: "English" },
-  { short_name: "NHEB",  full_name: "New Heart English Bible",                 language: "English" },
-  { short_name: "RNKJV", full_name: "Restored Name King James Version",        language: "English" },
-  { short_name: "TMB",   full_name: "Third Millennium Bible",                  language: "English" },
-  { short_name: "TYN",   full_name: "Tyndale Bible (1526)",                    language: "English" },
-  { short_name: "WEBBE", full_name: "World English Bible, British Edition",    language: "English" },
-  { short_name: "NET",   full_name: "New English Translation",                 language: "English" },
-  { short_name: "RV",    full_name: "Revised Version (1885)",                  language: "English" },
-  { short_name: "ISV",   full_name: "International Standard Version",          language: "English" },
+// Used when the Bolls.life API is unreachable from the server.
+// Organised as language groups so the selector can display them correctly.
+export const FALLBACK_GROUPS: BollsLanguageGroup[] = [
+  {
+    language: "English",
+    translations: [
+      { short_name: "KJV",    full_name: "King James Version",                   language: "English" },
+      { short_name: "NKJV",   full_name: "New King James Version",               language: "English" },
+      { short_name: "WEB",    full_name: "World English Bible",                  language: "English" },
+      { short_name: "ASV",    full_name: "American Standard Version",            language: "English" },
+      { short_name: "YLT",    full_name: "Young's Literal Translation",          language: "English" },
+      { short_name: "BBE",    full_name: "Bible in Basic English",               language: "English" },
+      { short_name: "DBY",    full_name: "Darby Translation",                    language: "English" },
+      { short_name: "WBS",    full_name: "Webster's Bible (1833)",               language: "English" },
+      { short_name: "LITV",   full_name: "Green's Literal Translation",          language: "English" },
+      { short_name: "MKJV",   full_name: "Modern King James Version",            language: "English" },
+      { short_name: "NHEB",   full_name: "New Heart English Bible",              language: "English" },
+      { short_name: "RNKJV",  full_name: "Restored Name King James Version",     language: "English" },
+      { short_name: "NMB",    full_name: "New Matthew Bible",                    language: "English" },
+      { short_name: "TMB",    full_name: "Third Millennium Bible",               language: "English" },
+      { short_name: "TYN",    full_name: "Tyndale Bible (1526)",                 language: "English" },
+      { short_name: "WEBBE",  full_name: "World English Bible, British Edition", language: "English" },
+      { short_name: "NET",    full_name: "New English Translation",              language: "English" },
+      { short_name: "RV",     full_name: "Revised Version (1885)",               language: "English" },
+      { short_name: "ISV",    full_name: "International Standard Version",       language: "English" },
+      { short_name: "AKJV",   full_name: "Authorized King James Version",        language: "English" },
+      { short_name: "KJ2000", full_name: "King James 2000",                      language: "English" },
+      { short_name: "CKJV",   full_name: "Conservative King James Version",      language: "English" },
+      { short_name: "KJV1611",full_name: "King James Version (1611)",            language: "English" },
+      { short_name: "LXXE",   full_name: "Septuagint (English)",                 language: "English" },
+    ],
+  },
+  {
+    language: "Spanish",
+    translations: [
+      { short_name: "RVR60",  full_name: "Reina-Valera 1960",                    language: "Spanish" },
+      { short_name: "NVI",    full_name: "Nueva Versión Internacional",           language: "Spanish" },
+      { short_name: "RVC",    full_name: "Reina Valera Contemporánea",            language: "Spanish" },
+      { short_name: "BTX",    full_name: "La Biblia Textual",                     language: "Spanish" },
+      { short_name: "LBLA",   full_name: "La Biblia de las Américas",             language: "Spanish" },
+      { short_name: "PDT",    full_name: "Palabra de Dios para Todos",            language: "Spanish" },
+      { short_name: "RV1909", full_name: "Reina-Valera 1909",                     language: "Spanish" },
+    ],
+  },
+  {
+    language: "French",
+    translations: [
+      { short_name: "LSG",    full_name: "Louis Segond (1910)",                   language: "French" },
+      { short_name: "NEG",    full_name: "Nouvelle Édition de Genève",            language: "French" },
+      { short_name: "BDS",    full_name: "Bible du Semeur",                       language: "French" },
+      { short_name: "S21",    full_name: "Segond 21",                             language: "French" },
+    ],
+  },
+  {
+    language: "German",
+    translations: [
+      { short_name: "LUT",    full_name: "Luther Bibel (1912)",                   language: "German" },
+      { short_name: "ELB",    full_name: "Elberfelder Bibel",                     language: "German" },
+      { short_name: "HFA",    full_name: "Hoffnung für Alle",                     language: "German" },
+    ],
+  },
+  {
+    language: "Portuguese",
+    translations: [
+      { short_name: "ARC",    full_name: "Almeida Revista e Corrigida",           language: "Portuguese" },
+      { short_name: "ACF",    full_name: "Almeida Corrigida Fiel",                language: "Portuguese" },
+    ],
+  },
+  {
+    language: "Russian",
+    translations: [
+      { short_name: "SYNODAL", full_name: "Synodal Bible",                        language: "Russian" },
+    ],
+  },
+  {
+    language: "Chinese",
+    translations: [
+      { short_name: "CNVS",   full_name: "Chinese New Version (Simplified)",      language: "Chinese" },
+      { short_name: "CNVT",   full_name: "Chinese New Version (Traditional)",     language: "Chinese" },
+      { short_name: "CUV",    full_name: "Chinese Union Version",                 language: "Chinese" },
+    ],
+  },
+  {
+    language: "Korean",
+    translations: [
+      { short_name: "KRV",    full_name: "Korean Revised Version",                language: "Korean" },
+    ],
+  },
+  {
+    language: "Arabic",
+    translations: [
+      { short_name: "SVD",    full_name: "Smith & Van Dyke",                      language: "Arabic" },
+      { short_name: "NAV",    full_name: "New Arabic Version",                    language: "Arabic" },
+    ],
+  },
 ];
+
+// Flat English list derived from FALLBACK_GROUPS for places that only need English.
+export const FALLBACK_TRANSLATIONS: BollsTranslation[] =
+  FALLBACK_GROUPS.find((g) => g.language === "English")?.translations ?? [];

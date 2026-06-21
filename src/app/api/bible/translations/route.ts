@@ -3,6 +3,7 @@ import {
   fetchTranslations,
   FEATURED_TRANSLATION_CODES,
   FALLBACK_TRANSLATIONS,
+  FALLBACK_GROUPS,
   type BollsTranslation,
 } from "@/lib/bible-api";
 
@@ -40,8 +41,10 @@ export async function GET() {
       }
     );
   } catch {
+    const fallbackEnglish = FALLBACK_TRANSLATIONS;
+    const fallbackGroups = FALLBACK_GROUPS.filter((g) => g.language !== "English");
     return NextResponse.json(
-      { english: FALLBACK_TRANSLATIONS, groups: [] },
+      { english: fallbackEnglish, groups: fallbackGroups },
       { headers: { "Cache-Control": "public, s-maxage=300" } }
     );
   }
