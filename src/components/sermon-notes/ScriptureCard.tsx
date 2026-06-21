@@ -3,11 +3,14 @@
 import Link from "next/link";
 import useSWR from "swr";
 import { cleanVerseText } from "@/lib/bible-api";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowUpRight } from "lucide-react";
 import type { DetectedRef } from "@/lib/detect-scriptures";
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const fetcher = (url: string) =>
+  fetch(url).then((r) => {
+    if (!r.ok) throw new Error("fetch failed");
+    return r.json();
+  });
 
 interface Props {
   scripture: DetectedRef;
@@ -15,7 +18,7 @@ interface Props {
 }
 
 export default function ScriptureCard({ scripture, translation = "KJV" }: Props) {
-  const { data, isLoading } = useSWR(
+  const { data, isLoading, error } = useSWR(
     `/api/bible/${translation}/${scripture.book}/${scripture.chapter}`,
     fetcher,
     { revalidateOnFocus: false, dedupingInterval: 300_000 }
@@ -40,23 +43,30 @@ export default function ScriptureCard({ scripture, translation = "KJV" }: Props)
       href={href}
       className="block rounded-lg border bg-card hover:bg-muted/30 transition-colors p-3 group"
     >
-      <div className="flex items-center justify-between mb-1.5">
+      <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-semibold text-primary">{scripture.display}</span>
-        <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+        <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
       </div>
 
-      {isLoading ? (
-        <div className="space-y-1.5">
-          <Skeleton className="h-3.5 w-full" />
-          <Skeleton className="h-3.5 w-4/5" />
+      {isLoading && (
+        <div className="space-y-2 py-0.5">
+          <div className="h-2.5 w-full rounded-full bg-muted-foreground/20 animate-pulse" />
+          <div className="h-2.5 w-4/5 rounded-full bg-muted-foreground/20 animate-pulse" />
+          <div className="h-2.5 w-3/5 rounded-full bg-muted-foreground/20 animate-pulse" />
         </div>
-      ) : verseText ? (
-        <p className="text-sm font-serif leading-relaxed text-foreground/75 italic line-clamp-3">
+      )}
+
+      {!isLoading && !error && verseText && (
+        <p className="text-sm font-serif leading-relaxed text-foreground/80 italic line-clamp-4">
           &ldquo;{verseText}&rdquo;
         </p>
-      ) : null}
+      )}
 
-      <p className="text-[10px] text-muted-foreground mt-1.5">{translation}</p>
+      {!isLoading && (verseText || error) && (
+        <p className="text-[10px] text-muted-foreground mt-2 uppercase tracking-wide">
+          {error ? "Could not load verse" : translation}
+        </p>
+      )}
     </Link>
   );
 }
