@@ -1,4 +1,5 @@
 import { getBook } from "@/lib/bible-books";
+import { getSectionHeading, isParagraphStart, stripParagraphMark } from "@/lib/bible-structure";
 import { BibleVerse } from "@/types";
 import VerseItem from "./VerseItem";
 
@@ -15,6 +16,42 @@ interface VerseListProps {
   onVerseClick: (verse: number) => void;
 }
 
+interface VerseGroup {
+  heading: string | null;
+  verses: Array<BibleVerse & { cleanText: string }>;
+}
+
+function buildVerseGroups(
+  verses: BibleVerse[],
+  book: number,
+  chapter: number
+): VerseGroup[] {
+  const groups: VerseGroup[] = [];
+  let current: VerseGroup = { heading: null, verses: [] };
+
+  for (const verse of verses) {
+    const hasPara = isParagraphStart(verse.text);
+    const heading = getSectionHeading(book, chapter, verse.verse);
+    const cleanText = stripParagraphMark(verse.text);
+
+    // Start a new paragraph block when there's a ¶ or a section heading,
+    // but never for the very first verse (it opens the first group).
+    const startNew = (hasPara || heading !== null) && verse.verse > 1 && current.verses.length > 0;
+
+    if (startNew) {
+      groups.push(current);
+      current = { heading, verses: [{ ...verse, cleanText }] };
+    } else {
+      // Capture a heading that fires on verse 1 of a chapter
+      if (current.verses.length === 0 && heading) current.heading = heading;
+      current.verses.push({ ...verse, cleanText });
+    }
+  }
+
+  if (current.verses.length > 0) groups.push(current);
+  return groups;
+}
+
 export default function VerseList({
   verses,
   book,
@@ -28,6 +65,7 @@ export default function VerseList({
 }: VerseListProps) {
   const bookInfo = getBook(book);
   const bookName = bookInfo?.name ?? "Bible";
+  const groups = buildVerseGroups(verses, book, chapter);
 
   return (
     <article>
@@ -41,20 +79,29 @@ export default function VerseList({
         </p>
       </header>
 
-      {/* Verses — rendered as a single flowing text block */}
-      <div className="bible-text text-lg sm:text-xl leading-[1.9]">
-        {verses.map((verse) => (
-          <VerseItem
-            key={verse.pk}
-            verse={verse.verse}
-            text={verse.text}
-            highlight={highlights.get(verse.verse)}
-            isBookmarked={bookmarks.has(verse.verse)}
-            hasNote={notes.has(verse.verse)}
-            isSelected={selectedVerse === verse.verse}
-            isReading={readingVerse === verse.verse}
-            onClick={() => onVerseClick(verse.verse)}
-          />
+      {/* Verses grouped into paragraphs with optional section headings */}
+      <div className="bible-text">
+        {groups.map((group, gi) => (
+          <div key={gi}>
+            {group.heading && (
+              <span className="bible-section-heading">{group.heading}</span>
+            )}
+            <p>
+              {group.verses.map((verse) => (
+                <VerseItem
+                  key={verse.pk}
+                  verse={verse.verse}
+                  text={verse.cleanText}
+                  highlight={highlights.get(verse.verse)}
+                  isBookmarked={bookmarks.has(verse.verse)}
+                  hasNote={notes.has(verse.verse)}
+                  isSelected={selectedVerse === verse.verse}
+                  isReading={readingVerse === verse.verse}
+                  onClick={() => onVerseClick(verse.verse)}
+                />
+              ))}
+            </p>
+          </div>
         ))}
       </div>
     </article>

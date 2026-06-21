@@ -3,6 +3,8 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, ChevronDown, BookOpen, Calendar, Columns2, Languages, Volume2 } from "lucide-react";
+import ReaderSettingsButton from "./ReaderSettingsButton";
+import { type FontFamily, type ReaderSettings } from "@/hooks/useReaderSettings";
 import { Button } from "@/components/ui/button";
 import { getBook, BIBLE_BOOKS } from "@/lib/bible-books";
 import { cn } from "@/lib/utils";
@@ -26,6 +28,12 @@ interface ChapterNavProps {
   chapter: number;
   audioActive?: boolean;
   onAudioToggle?: () => void;
+  readerSettings?: ReaderSettings;
+  onIncreaseFontSize?: () => void;
+  onDecreaseFontSize?: () => void;
+  canIncreaseFontSize?: boolean;
+  canDecreaseFontSize?: boolean;
+  onFontFamily?: (f: FontFamily) => void;
 }
 
 interface PlanPassage {
@@ -56,7 +64,19 @@ function flattenPlan(days: PlanDay[]): FlatPassage[] {
   return result;
 }
 
-function ChapterNavInner({ translation, book, chapter, audioActive, onAudioToggle }: ChapterNavProps) {
+function ChapterNavInner({
+  translation,
+  book,
+  chapter,
+  audioActive,
+  onAudioToggle,
+  readerSettings,
+  onIncreaseFontSize,
+  onDecreaseFontSize,
+  canIncreaseFontSize,
+  canDecreaseFontSize,
+  onFontFamily,
+}: ChapterNavProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [selectorOpen, setSelectorOpen] = useState(false);
@@ -330,6 +350,18 @@ function ChapterNavInner({ translation, book, chapter, audioActive, onAudioToggl
             >
               <Volume2 className="h-3.5 w-3.5" />
             </Button>
+          )}
+
+          {/* Reader settings (font size, typeface, theme) */}
+          {readerSettings && onIncreaseFontSize && onDecreaseFontSize && onFontFamily && (
+            <ReaderSettingsButton
+              settings={readerSettings}
+              onIncrease={onIncreaseFontSize}
+              onDecrease={onDecreaseFontSize}
+              canIncrease={canIncreaseFontSize ?? true}
+              canDecrease={canDecreaseFontSize ?? true}
+              onFontFamily={onFontFamily}
+            />
           )}
 
           {/* Secondary translation selector — only in parallel mode */}

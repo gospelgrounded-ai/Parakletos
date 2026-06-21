@@ -5,6 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { type HighlightColor } from "@/types";
 import { getBook } from "@/lib/bible-books";
+import { useReaderSettings } from "@/hooks/useReaderSettings";
 import ChapterNav from "./ChapterNav";
 import VerseList from "./VerseList";
 import ParallelVerseList from "./ParallelVerseList";
@@ -55,6 +56,14 @@ export default function BibleReaderClient({
   const [activeStudyVerse, setActiveStudyVerse] = useState<number | null>(null);
   const [audioMode, setAudioMode] = useState(false);
   const [readingVerse, setReadingVerse] = useState<number | null>(null);
+  const {
+    settings,
+    increaseFontSize,
+    decreaseFontSize,
+    setFontFamily,
+    canIncrease,
+    canDecrease,
+  } = useReaderSettings();
 
   const bookName = getBook(book)?.name ?? "Bible";
 
@@ -215,8 +224,24 @@ export default function BibleReaderClient({
           chapter={chapter}
           audioActive={audioMode}
           onAudioToggle={() => setAudioMode((v) => !v)}
+          readerSettings={settings}
+          onIncreaseFontSize={increaseFontSize}
+          onDecreaseFontSize={decreaseFontSize}
+          canIncreaseFontSize={canIncrease}
+          canDecreaseFontSize={canDecrease}
+          onFontFamily={setFontFamily}
         />
-        <div className="flex-1 overflow-y-auto" style={{ background: "hsl(var(--reader-bg))" }}>
+        <div
+          className="flex-1 overflow-y-auto"
+          style={{
+            background: "hsl(var(--reader-bg))",
+            "--reader-font-family":
+              settings.fontFamily === "sans"
+                ? "system-ui, -apple-system, sans-serif"
+                : "Georgia, 'Times New Roman', serif",
+            "--reader-font-size": `${settings.fontSize / 100}rem`,
+          } as React.CSSProperties}
+        >
           <div
             className={
               parallelTranslation
