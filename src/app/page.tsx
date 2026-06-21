@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, Bookmark, Highlighter, NotebookPen, Search, Users } from "lucide-react";
+import { BookOpen, Highlighter, NotebookPen, Bookmark, Search, Users } from "lucide-react";
 
 export default function LandingPage() {
   return (
@@ -11,20 +11,12 @@ export default function LandingPage() {
             <BookOpen className="h-7 w-7 text-primary" />
             <span className="font-serif text-xl font-bold text-foreground">Parakletos</span>
           </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/login"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/register"
-              className="text-sm bg-primary text-primary-foreground px-4 py-1.5 rounded-md hover:bg-primary/90 transition-colors font-medium"
-            >
-              Get started
-            </Link>
-          </div>
+          <Link
+            href="/login"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5"
+          >
+            Sign in
+          </Link>
         </div>
       </header>
 
@@ -42,63 +34,78 @@ export default function LandingPage() {
           The depth of a study Bible with the simplicity of a reading app. Multiple
           translations, highlights, notes, cross-references, and reading plans — all in one place.
         </p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+        <div className="flex flex-col items-center gap-3">
           <Link
             href="/register"
             className="bg-primary text-primary-foreground px-8 py-3.5 rounded-lg font-medium text-base hover:bg-primary/90 transition-colors"
           >
             Start reading for free
           </Link>
+          <p className="text-xs text-muted-foreground">Free forever. No credit card required.</p>
           <Link
             href="/bible/KJV/43/1"
-            className="border border-border px-8 py-3.5 rounded-lg font-medium text-base hover:bg-muted transition-colors"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            Preview John 1
+            or preview a chapter →
           </Link>
         </div>
       </section>
 
       {/* Features */}
-      <section className="max-w-6xl mx-auto px-4 pb-24">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[
-            {
-              icon: <BookOpen className="h-6 w-6" />,
-              title: "Multiple Translations",
-              desc: "Read side-by-side in KJV, NKJV, WEB, ASV, and dozens more. Switch instantly.",
-            },
-            {
-              icon: <Highlighter className="h-6 w-6" />,
-              title: "Color Highlights",
-              desc: "Mark verses in 5 colors. Your highlights sync across all your devices.",
-            },
-            {
-              icon: <NotebookPen className="h-6 w-6" />,
-              title: "Personal Notes",
-              desc: "Write study notes on any verse. Keep a digital margin journal.",
-            },
-            {
-              icon: <Bookmark className="h-6 w-6" />,
-              title: "Bookmarks",
-              desc: "Save verses to return to. Organize by topic or let us remember for you.",
-            },
-            {
-              icon: <Search className="h-6 w-6" />,
-              title: "Powerful Search",
-              desc: "Find any word or phrase across the entire Bible instantly.",
-            },
-            {
-              icon: <Users className="h-6 w-6" />,
-              title: "Reading Plans",
-              desc: "Follow structured plans like Bible in a Year or Gospels in 40 Days.",
-            },
-          ].map((f) => (
-            <div key={f.title} className="bg-card border rounded-xl p-6 hover:shadow-md transition-shadow">
-              <div className="text-primary mb-3">{f.icon}</div>
-              <h3 className="font-semibold text-foreground mb-2">{f.title}</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
+      <section className="max-w-6xl mx-auto px-4 pb-24 space-y-6">
+        {/* Featured differentiators */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-card border rounded-xl p-6 hover:shadow-md transition-shadow">
+            <div className="text-primary mb-3">
+              <BookOpen className="h-6 w-6" />
             </div>
-          ))}
+            <h3 className="font-semibold text-foreground mb-2">Multiple Translations</h3>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              Read side-by-side in KJV, NKJV, WEB, ASV, and dozens more. Switch instantly, or
+              open any two translations in parallel with a single tap.
+            </p>
+          </div>
+          <div className="bg-card border rounded-xl p-6 hover:shadow-md transition-shadow">
+            <div className="text-primary mb-3">
+              <NotebookPen className="h-6 w-6" />
+            </div>
+            <h3 className="font-semibold text-foreground mb-2">Personal Notes</h3>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              Write study notes on any verse and keep a digital margin journal. Your notes
+              stay attached to the verse, no matter which translation you read in.
+            </p>
+          </div>
+        </div>
+
+        {/* Highlights card - full width */}
+        <div className="bg-card border rounded-xl p-6 hover:shadow-md transition-shadow flex items-start gap-4">
+          <div className="text-primary shrink-0 mt-0.5">
+            <Highlighter className="h-6 w-6" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-foreground mb-1">Color Highlights</h3>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              Mark verses in 5 colors. Your highlights sync across all your devices so your
+              study stays with you everywhere.
+            </p>
+          </div>
+        </div>
+
+        {/* Compressed secondary features */}
+        <div className="rounded-xl border bg-muted/30 px-6 py-4">
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Also included:</span>{" "}
+            <span className="inline-flex items-center gap-1">
+              <Bookmark className="h-3.5 w-3.5 shrink-0" /> Bookmarks,
+            </span>{" "}
+            <span className="inline-flex items-center gap-1">
+              <Search className="h-3.5 w-3.5 shrink-0" /> full-Bible search,
+            </span>{" "}
+            <span className="inline-flex items-center gap-1">
+              <Users className="h-3.5 w-3.5 shrink-0" /> structured reading plans
+            </span>{" "}
+            (Bible in a Year, Gospels in 40 Days, and more).
+          </p>
         </div>
       </section>
 
@@ -110,9 +117,11 @@ export default function LandingPage() {
         </div>
         <p className="mb-3">Built for those who love the Word.</p>
         <div className="flex items-center justify-center gap-4 text-xs">
-          <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
+          <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
           <span>·</span>
-          <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+          <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
+          <span>·</span>
+          <a href="mailto:support@parakletos.app" className="hover:text-foreground transition-colors">Support</a>
         </div>
       </footer>
     </div>

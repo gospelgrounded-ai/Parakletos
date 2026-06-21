@@ -70,13 +70,15 @@ export default function VerseList({
   return (
     <article>
       {/* Chapter heading */}
-      <header className="mb-8 select-none">
-        <h1 className="font-serif text-3xl sm:text-4xl font-semibold text-muted-foreground/60 tracking-tight">
-          {bookName}
-        </h1>
-        <p className="font-serif text-6xl sm:text-7xl font-bold text-muted-foreground/20 leading-none mt-1">
-          {chapter}
-        </p>
+      <header className="mb-6 select-none">
+        <div className="flex items-baseline gap-2.5">
+          <h1 className="font-serif text-xl font-medium text-muted-foreground/50 tracking-tight">
+            {bookName}
+          </h1>
+          <span className="font-serif text-5xl sm:text-6xl font-bold text-muted-foreground/15 leading-none">
+            {chapter}
+          </span>
+        </div>
       </header>
 
       {/* Verses grouped into paragraphs with optional section headings */}

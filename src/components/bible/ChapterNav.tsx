@@ -1,15 +1,23 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import { useTheme } from "next-themes";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, ChevronDown, BookOpen, Calendar, Columns2, Languages, Volume2 } from "lucide-react";
-import ReaderSettingsButton from "./ReaderSettingsButton";
+import {
+  ChevronLeft, ChevronRight, ChevronDown, BookOpen, Calendar,
+  Columns2, Languages, Volume2, MoreHorizontal, Check, Minus, Plus,
+} from "lucide-react";
 import { type FontFamily, type ReaderSettings } from "@/hooks/useReaderSettings";
 import { Button } from "@/components/ui/button";
 import { getBook, BIBLE_BOOKS } from "@/lib/bible-books";
 import { cn } from "@/lib/utils";
 import BookChapterSelector from "./BookChapterSelector";
 import TranslationSelector from "./TranslationSelector";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -80,6 +88,7 @@ function ChapterNavInner({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [selectorOpen, setSelectorOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   const { english: availableTranslations } = useTranslations();
 
@@ -99,7 +108,6 @@ function ChapterNavInner({
   const bookName = bookInfo?.name ?? "Bible";
   const totalChapters = bookInfo?.chapters ?? 1;
 
-  // Flatten plan into an ordered sequence of passages
   const flat: FlatPassage[] = plan?.days ? flattenPlan(plan.days as PlanDay[]) : [];
   const currentFlatIdx = planId
     ? flat.findIndex((p) => p.day === planDay && p.passageIdx === passageIdx)
@@ -109,7 +117,6 @@ function ChapterNavInner({
   const prevEntry = inPlanMode ? (flat[currentFlatIdx - 1] ?? null) : null;
   const nextEntry = inPlanMode ? (flat[currentFlatIdx + 1] ?? null) : null;
 
-  // Passages in the current plan day (to show "X of Y" counter)
   const dayPassages = flat.filter((p) => p.day === planDay);
 
   function planUrl(entry: FlatPassage) {
@@ -150,7 +157,7 @@ function ChapterNavInner({
       params.delete("interlinear");
     } else {
       params.set("interlinear", "1");
-      params.delete("parallel"); // mutually exclusive
+      params.delete("parallel");
     }
     const qs = params.toString();
     router.push(`/bible/${translation}/${book}/${chapter}${qs ? `?${qs}` : ""}`);
@@ -182,11 +189,9 @@ function ChapterNavInner({
       : "";
     if (inPlanMode) {
       if (nextEntry) {
-        // Crossing into a new day — mark the current day complete
         if (nextEntry.day > planDay) markDayComplete();
         router.push(planUrl(nextEntry));
       } else {
-        // Last passage of the entire plan — mark complete, return to plan page
         markDayComplete();
         router.push(`/plans/${planId}`);
       }
@@ -203,19 +208,15 @@ function ChapterNavInner({
   const prevDisabled = inPlanMode ? !prevEntry : book === 1 && chapter === 1;
   const nextDisabled = !inPlanMode && book === 66 && chapter === totalChapters;
 
-  // Plan-aware Prev label: show the reference or "Day N" when crossing days
   function prevLabel() {
     if (inPlanMode && prevEntry) {
-      if (prevEntry.day < planDay) {
-        return `Day ${prevEntry.day}`;
-      }
+      if (prevEntry.day < planDay) return `Day ${prevEntry.day}`;
       const b = getBook(prevEntry.book);
       return `${b?.shortName ?? ""} ${prevEntry.chapter}`;
     }
     return "Prev";
   }
 
-  // Plan-aware Next label
   function nextLabel() {
     if (inPlanMode) {
       if (!nextEntry) return "Done";
@@ -226,7 +227,6 @@ function ChapterNavInner({
     return "Next";
   }
 
-  // Preserve plan + parallel params when translation changes
   const extraSearch = (() => {
     const p = new URLSearchParams();
     if (planId) {
@@ -234,17 +234,15 @@ function ChapterNavInner({
       p.set("day", String(planDay));
       p.set("passage", String(passageIdx));
     }
-    if (parallelTranslation) {
-      p.set("parallel", parallelTranslation);
-    }
-    if (interlinearMode) {
-      p.set("interlinear", "1");
-    }
+    if (parallelTranslation) p.set("parallel", parallelTranslation);
+    if (interlinearMode) p.set("interlinear", "1");
     return p.toString() || undefined;
   })();
 
+  const hasActiveFeature = !!(parallelTranslation || interlinearMode || audioActive);
+  const hasReaderSettings = !!(readerSettings && onIncreaseFontSize && onDecreaseFontSize && onFontFamily);
+
   return (
-    // Single sticky wrapper so the plan banner stays fixed with the nav
     <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b">
       {/* Plan context banner */}
       {inPlanMode && (
@@ -271,16 +269,14 @@ function ChapterNavInner({
           size="sm"
           onClick={navigatePrev}
           disabled={prevDisabled}
-          className={cn(
-            "flex items-center gap-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
-          )}
+          className="flex items-center gap-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
           aria-label="Previous"
         >
           <ChevronLeft className="h-4 w-4" />
           <span className="hidden sm:inline text-sm">{prevLabel()}</span>
         </Button>
 
-        {/* Center */}
+        {/* Center: chapter selector + translation + overflow */}
         <div className="flex items-center gap-1.5 min-w-0">
           <Button
             variant="ghost"
@@ -301,90 +297,196 @@ function ChapterNavInner({
             extraSearch={extraSearch}
           />
 
-          {/* Parallel toggle */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleParallel}
-            className={cn(
-              "h-8 w-8 p-0 flex-shrink-0",
-              parallelTranslation
-                ? "text-primary bg-primary/10 hover:bg-primary/20"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-            title={parallelTranslation ? "Exit parallel view" : "Read in parallel"}
-            aria-label={parallelTranslation ? "Exit parallel view" : "Read in parallel"}
-          >
-            <Columns2 className="h-3.5 w-3.5" />
-          </Button>
-
-          {/* Interlinear toggle */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleInterlinear}
-            className={cn(
-              "h-8 w-8 p-0 flex-shrink-0",
-              interlinearMode
-                ? "text-primary bg-primary/10 hover:bg-primary/20"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-            title={interlinearMode ? "Exit interlinear view" : "Show Greek/Hebrew interlinear"}
-            aria-label={interlinearMode ? "Exit interlinear view" : "Show Greek/Hebrew interlinear"}
-          >
-            <Languages className="h-3.5 w-3.5" />
-          </Button>
-
-          {/* Audio toggle */}
-          {onAudioToggle && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onAudioToggle}
-              className={cn(
-                "h-8 w-8 p-0 flex-shrink-0",
-                audioActive
-                  ? "text-primary bg-primary/10 hover:bg-primary/20"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              title={audioActive ? "Close audio player" : "Listen to chapter"}
-              aria-label={audioActive ? "Close audio player" : "Listen to chapter"}
-            >
-              <Volume2 className="h-3.5 w-3.5" />
-            </Button>
-          )}
-
-          {/* Reader settings (font size, typeface, theme) */}
-          {readerSettings && onIncreaseFontSize && onDecreaseFontSize && onFontFamily && (
-            <ReaderSettingsButton
-              settings={readerSettings}
-              onIncrease={onIncreaseFontSize}
-              onDecrease={onDecreaseFontSize}
-              canIncrease={canIncreaseFontSize ?? true}
-              canDecrease={canDecreaseFontSize ?? true}
-              onFontFamily={onFontFamily}
-            />
-          )}
-
-          {/* Secondary translation selector — only in parallel mode */}
-          {parallelTranslation && (
-            <Select value={parallelTranslation} onValueChange={changeParallel}>
-              <SelectTrigger
-                className="h-8 w-auto min-w-[56px] max-w-[80px] border-0 bg-primary/5 hover:bg-primary/10 text-xs font-semibold text-primary px-2 flex-shrink-0 focus:ring-1"
-                aria-label="Select parallel translation"
+          {/* ⋯ overflow menu — all secondary tools in one place */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative h-8 w-8 p-0 flex-shrink-0 text-muted-foreground hover:text-foreground"
+                aria-label="Reading tools"
               >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {availableTranslations.map((t) => (
-                  <SelectItem key={t.short_name} value={t.short_name} className="text-sm">
-                    <span className="font-semibold">{t.short_name}</span>
-                    <span className="ml-2 text-muted-foreground text-xs">{t.full_name}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+                <MoreHorizontal className="h-4 w-4" />
+                {hasActiveFeature && (
+                  <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
+                )}
+              </Button>
+            </PopoverTrigger>
+
+            <PopoverContent className="w-72 p-3" align="end">
+              <div className="space-y-0.5">
+                {/* Parallel view */}
+                <button
+                  onClick={toggleParallel}
+                  className={cn(
+                    "flex items-center gap-3 w-full px-2 py-2.5 rounded-lg text-sm transition-colors text-left",
+                    parallelTranslation
+                      ? "bg-primary/10 text-primary"
+                      : "hover:bg-muted text-foreground"
+                  )}
+                >
+                  <Columns2 className="h-4 w-4 shrink-0" />
+                  <div className="flex-1">
+                    <span className="font-medium">Parallel view</span>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {parallelTranslation
+                        ? `Reading ${parallelTranslation} alongside`
+                        : "Read two translations side-by-side"}
+                    </p>
+                  </div>
+                  {parallelTranslation && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                </button>
+
+                {/* Parallel translation picker — visible when active */}
+                {parallelTranslation && (
+                  <div className="ml-9 mb-1">
+                    <Select value={parallelTranslation} onValueChange={changeParallel}>
+                      <SelectTrigger
+                        className="h-7 text-xs border-primary/20 focus:ring-1"
+                        aria-label="Select parallel translation"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableTranslations.map((t) => (
+                          <SelectItem key={t.short_name} value={t.short_name} className="text-sm">
+                            <span className="font-semibold">{t.short_name}</span>
+                            <span className="ml-2 text-muted-foreground text-xs">{t.full_name}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Interlinear */}
+                <button
+                  onClick={toggleInterlinear}
+                  className={cn(
+                    "flex items-center gap-3 w-full px-2 py-2.5 rounded-lg text-sm transition-colors text-left",
+                    interlinearMode
+                      ? "bg-primary/10 text-primary"
+                      : "hover:bg-muted text-foreground"
+                  )}
+                >
+                  <Languages className="h-4 w-4 shrink-0" />
+                  <div className="flex-1">
+                    <span className="font-medium">Interlinear</span>
+                    <p className="text-xs text-muted-foreground mt-0.5">Greek / Hebrew word-for-word</p>
+                  </div>
+                  {interlinearMode && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                </button>
+
+                {/* Listen */}
+                {onAudioToggle && (
+                  <button
+                    onClick={onAudioToggle}
+                    className={cn(
+                      "flex items-center gap-3 w-full px-2 py-2.5 rounded-lg text-sm transition-colors text-left",
+                      audioActive
+                        ? "bg-primary/10 text-primary"
+                        : "hover:bg-muted text-foreground"
+                    )}
+                  >
+                    <Volume2 className="h-4 w-4 shrink-0" />
+                    <div className="flex-1">
+                      <span className="font-medium">Listen</span>
+                      <p className="text-xs text-muted-foreground mt-0.5">Audio Bible player</p>
+                    </div>
+                    {audioActive && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                  </button>
+                )}
+              </div>
+
+              {/* Text & theme settings */}
+              {hasReaderSettings && (
+                <>
+                  <div className="border-t my-2" />
+
+                  {/* Font size */}
+                  <div className="px-2 py-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+                      Font size
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={onDecreaseFontSize}
+                        disabled={!canDecreaseFontSize}
+                        aria-label="Decrease font size"
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                      </Button>
+                      <div className="flex-1 text-center text-sm font-medium tabular-nums">
+                        {Math.round(readerSettings!.fontSize)}%
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={onIncreaseFontSize}
+                        disabled={!canIncreaseFontSize}
+                        aria-label="Increase font size"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Typeface */}
+                  <div className="px-2 py-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+                      Typeface
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["serif", "sans"] as const).map((f) => (
+                        <button
+                          key={f}
+                          onClick={() => onFontFamily!(f)}
+                          className={cn(
+                            "py-2 px-3 rounded-md border text-sm transition-colors",
+                            readerSettings!.fontFamily === f
+                              ? "border-primary bg-primary/5 text-primary font-medium"
+                              : "border-border text-muted-foreground hover:border-foreground/40"
+                          )}
+                          style={{
+                            fontFamily: f === "serif" ? "Georgia, serif" : "system-ui, sans-serif",
+                          }}
+                        >
+                          {f === "serif" ? "Serif" : "Sans"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Theme */}
+                  <div className="px-2 py-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+                      Theme
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(["light", "dark", "system"] as const).map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setTheme(t)}
+                          className={cn(
+                            "py-2 px-1 rounded-md border text-xs capitalize transition-colors",
+                            theme === t
+                              ? "border-primary bg-primary/5 text-primary font-medium"
+                              : "border-border text-muted-foreground hover:border-foreground/40"
+                          )}
+                        >
+                          {t === "system" ? "Auto" : t.charAt(0).toUpperCase() + t.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Next */}
@@ -393,9 +495,7 @@ function ChapterNavInner({
           size="sm"
           onClick={navigateNext}
           disabled={nextDisabled}
-          className={cn(
-            "flex items-center gap-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
-          )}
+          className="flex items-center gap-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
           aria-label="Next"
         >
           <span className="hidden sm:inline text-sm">{nextLabel()}</span>
