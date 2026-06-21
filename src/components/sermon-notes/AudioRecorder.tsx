@@ -14,18 +14,36 @@ function fmt(s: number) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
+// Pick the best MIME type this browser/device supports
+function pickMimeType(): string {
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/ogg;codecs=opus",
+    "",
+  ];
+  for (const t of candidates) {
+    if (!t || MediaRecorder.isTypeSupported(t)) return t;
+  }
+  return "";
+}
+
 export default function AudioRecorder({ onRecordingChange }: Props) {
   const [recState, setRecState] = useState<RecState>("idle");
   const [supported, setSupported] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [playError, setPlayError] = useState(false);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const blobRef = useRef<Blob | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mimeTypeRef = useRef<string>("");
+  const audioUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     setSupported(typeof window !== "undefined" && "MediaRecorder" in window);
@@ -41,8 +59,12 @@ export default function AudioRecorder({ onRecordingChange }: Props) {
   async function start() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => null);
     if (!stream) return;
+
     chunksRef.current = [];
-    const rec = new MediaRecorder(stream);
+    const mimeType = pickMimeType();
+    mimeTypeRef.current = mimeType;
+
+    const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
 
     rec.ondataavailable = (e) => {
       if (e.data.size > 0) chunksRef.current.push(e.data);
@@ -50,10 +72,14 @@ export default function AudioRecorder({ onRecordingChange }: Props) {
 
     rec.onstop = () => {
       stream.getTracks().forEach((t) => t.stop());
-      const b = new Blob(chunksRef.current, { type: "audio/webm" });
+      // Use the recorder's actual mimeType (most reliable on iOS)
+      const type = rec.mimeType || mimeTypeRef.current || "audio/mp4";
+      const b = new Blob(chunksRef.current, { type });
       blobRef.current = b;
       const url = URL.createObjectURL(b);
+      audioUrlRef.current = url;
       setAudioUrl(url);
+      setPlayError(false);
       onRecordingChange?.(b);
       setRecState("stopped");
     };
@@ -71,38 +97,62 @@ export default function AudioRecorder({ onRecordingChange }: Props) {
     recorderRef.current = null;
   }
 
-  function discard() {
+  function resetAudio() {
     audioRef.current?.pause();
     audioRef.current = null;
-    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    const url = audioUrlRef.current;
+    if (url) URL.revokeObjectURL(url);
+    audioUrlRef.current = null;
     setAudioUrl(null);
     blobRef.current = null;
     setElapsed(0);
     setIsPlaying(false);
+    setPlayError(false);
+  }
+
+  function discard() {
+    resetAudio();
     setRecState("idle");
     onRecordingChange?.(null);
   }
 
   function togglePlay() {
-    if (!audioUrl) return;
+    if (!audioUrlRef.current) return;
+
     if (!audioRef.current) {
-      audioRef.current = new Audio(audioUrl);
+      audioRef.current = new Audio(audioUrlRef.current);
       audioRef.current.onended = () => setIsPlaying(false);
+      audioRef.current.onerror = () => {
+        setIsPlaying(false);
+        setPlayError(true);
+      };
     }
+
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.play();
-      setIsPlaying(true);
+      setPlayError(false);
+      const p = audioRef.current.play();
+      if (p !== undefined) {
+        p.then(() => setIsPlaying(true)).catch(() => {
+          setIsPlaying(false);
+          setPlayError(true);
+        });
+      } else {
+        setIsPlaying(true);
+      }
     }
   }
 
   function download() {
-    if (!audioUrl) return;
+    const url = audioUrlRef.current;
+    if (!url) return;
+    const ext = (rec: string) =>
+      rec.includes("mp4") ? "mp4" : rec.includes("ogg") ? "ogg" : "webm";
     const a = document.createElement("a");
-    a.href = audioUrl;
-    a.download = "sermon-audio.webm";
+    a.href = url;
+    a.download = `sermon-audio.${ext(mimeTypeRef.current)}`;
     a.click();
   }
 
@@ -110,10 +160,10 @@ export default function AudioRecorder({ onRecordingChange }: Props) {
     return () => {
       clearTimer();
       if (recorderRef.current?.state === "recording") recorderRef.current.stop();
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      const url = audioUrlRef.current;
+      if (url) URL.revokeObjectURL(url);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clearTimer]);
 
   if (!supported) return null;
 
@@ -152,7 +202,16 @@ export default function AudioRecorder({ onRecordingChange }: Props) {
             {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           </Button>
           <span className="text-sm text-muted-foreground tabular-nums">{fmt(elapsed)}</span>
-          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={download} aria-label="Download recording">
+          {playError && (
+            <span className="text-xs text-destructive">Playback failed</span>
+          )}
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8"
+            onClick={download}
+            aria-label="Download recording"
+          >
             <Download className="h-4 w-4" />
           </Button>
           <Button
@@ -168,13 +227,8 @@ export default function AudioRecorder({ onRecordingChange }: Props) {
             size="sm"
             variant="outline"
             onClick={async () => {
-              // Revoke old URL before starting a new recording
-              audioRef.current?.pause();
-              audioRef.current = null;
-              if (audioUrl) URL.revokeObjectURL(audioUrl);
-              setAudioUrl(null);
-              blobRef.current = null;
-              setIsPlaying(false);
+              resetAudio();
+              setRecState("idle");
               await start();
             }}
             className="gap-2 ml-auto"
