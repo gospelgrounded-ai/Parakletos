@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import useSWR from "swr";
 import { Languages } from "lucide-react";
 import {
   Select,
@@ -13,12 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  FEATURED_TRANSLATION_CODES,
-  FALLBACK_TRANSLATIONS,
-  type BollsTranslation,
-  type BollsLanguageGroup,
-} from "@/lib/bible-api";
+import { FEATURED_TRANSLATION_CODES } from "@/lib/bible-api";
+import { useTranslations } from "@/hooks/useTranslations";
 
 interface TranslationSelectorProps {
   currentTranslation: string;
@@ -27,12 +22,6 @@ interface TranslationSelectorProps {
   extraSearch?: string;
 }
 
-interface TranslationsResponse {
-  english: BollsTranslation[];
-  groups: BollsLanguageGroup[];
-}
-
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
 const featuredSet = new Set(FEATURED_TRANSLATION_CODES);
 
 export default function TranslationSelector({
@@ -42,21 +31,8 @@ export default function TranslationSelector({
   extraSearch,
 }: TranslationSelectorProps) {
   const router = useRouter();
-  const { data } = useSWR<TranslationsResponse>(
-    "/api/bible/translations",
-    fetcher,
-    { revalidateOnFocus: false }
-  );
+  const { popular, english, groups } = useTranslations();
 
-  const english = data?.english ?? FALLBACK_TRANSLATIONS;
-  const groups = data?.groups ?? [];
-
-  // Popular = featured codes that actually exist in the API response (in order)
-  const popular = FEATURED_TRANSLATION_CODES
-    .map((code) => english.find((t) => t.short_name === code))
-    .filter((t): t is BollsTranslation => t !== undefined);
-
-  // Everything else English that isn't in our preferred list
   const moreEnglish = english.filter((t) => !featuredSet.has(t.short_name));
 
   function handleSelect(value: string) {
@@ -104,8 +80,8 @@ export default function TranslationSelector({
           </>
         )}
 
-        {groups.map((group) => (
-          group.translations.length > 0 && (
+        {groups.map((group) =>
+          group.translations.length > 0 ? (
             <span key={group.language}>
               <SelectSeparator />
               <SelectGroup>
@@ -120,8 +96,8 @@ export default function TranslationSelector({
                 ))}
               </SelectGroup>
             </span>
-          )
-        ))}
+          ) : null
+        )}
       </SelectContent>
     </Select>
   );

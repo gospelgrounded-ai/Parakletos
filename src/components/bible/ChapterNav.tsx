@@ -17,17 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  FALLBACK_TRANSLATIONS,
-  type BollsTranslation,
-  type BollsLanguageGroup,
-} from "@/lib/bible-api";
+import { useTranslations } from "@/hooks/useTranslations";
 import useSWR from "swr";
-
-interface TranslationsResponse {
-  english: BollsTranslation[];
-  groups: BollsLanguageGroup[];
-}
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -90,12 +81,7 @@ function ChapterNavInner({
   const searchParams = useSearchParams();
   const [selectorOpen, setSelectorOpen] = useState(false);
 
-  const { data: translationsData } = useSWR<TranslationsResponse>(
-    "/api/bible/translations",
-    fetcher,
-    { revalidateOnFocus: false }
-  );
-  const availableTranslations = translationsData?.english ?? FALLBACK_TRANSLATIONS;
+  const { english: availableTranslations } = useTranslations();
 
   const planId = searchParams.get("planId");
   const planDay = Number(searchParams.get("day") ?? "0");
