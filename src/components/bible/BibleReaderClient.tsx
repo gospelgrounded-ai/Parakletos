@@ -339,6 +339,7 @@ export default function BibleReaderClient({
           verses={verses}
           bookName={bookName}
           chapter={chapter}
+          isAuthenticated={isAuthenticated}
           onReadingVerseChange={setReadingVerse}
           onClose={() => {
             setAudioMode(false);
