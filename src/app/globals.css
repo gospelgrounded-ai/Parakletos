@@ -69,7 +69,7 @@
   /* Bible reader text styles */
   .bible-text {
     font-family: var(--reader-font-family, Georgia, 'Times New Roman', serif);
-    font-size: var(--reader-font-size, 1.125rem);
+    font-size: var(--reader-font-size, 1.25rem);
     color: hsl(var(--reader-text));
     line-height: 1.9;
   }
