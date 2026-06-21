@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { HighlightColor, HIGHLIGHT_COLORS } from "@/types";
-import { Bookmark, FileText, Search, Highlighter } from "lucide-react";
+import Link from "next/link";
+import { Bookmark, FileText, Search, Highlighter, NotebookPen, ArrowRight } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -335,6 +336,21 @@ export default function LibraryPage() {
           </TabsContent>
         </Tabs>
       )}
+
+      {/* Sermon Notes shortcut — shown below the tab content */}
+      <Link
+        href="/sermon-notes"
+        className="mt-8 flex items-center justify-between rounded-xl border bg-card px-4 py-3.5 hover:bg-muted/50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <NotebookPen className="h-5 w-5 text-muted-foreground shrink-0" />
+          <div>
+            <p className="text-sm font-medium">Sermon Notes</p>
+            <p className="text-xs text-muted-foreground">Long-form outlines and study notes</p>
+          </div>
+        </div>
+        <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+      </Link>
     </div>
   );
 }

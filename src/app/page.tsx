@@ -107,6 +107,46 @@ export default function LandingPage() {
             (Bible in a Year, Gospels in 40 Days, and more).
           </p>
         </div>
+
+        {/* Differentiation */}
+        <p className="text-center text-sm text-muted-foreground pt-2">
+          No ads. No clutter. No subscription —{" "}
+          <span className="text-foreground font-medium">just the Word, and your notes.</span>
+        </p>
+      </section>
+
+      {/* FAQ */}
+      <section className="max-w-3xl mx-auto px-4 pb-24">
+        <h2 className="font-serif text-2xl font-bold mb-6 text-center">Common questions</h2>
+        <div className="divide-y rounded-xl border bg-card overflow-hidden">
+          {[
+            {
+              q: "Is it really free?",
+              a: "Yes, completely free. No credit card, no trial period, and no paid subscription. Every translation and every feature is included at no cost.",
+            },
+            {
+              q: "Which Bible translations are included?",
+              a: "Over 80 translations, including KJV, NKJV, WEB, ASV, NET, and many more in multiple languages. All powered by the Bolls.life API.",
+            },
+            {
+              q: "Do my highlights and notes sync across devices?",
+              a: "Yes. Your highlights, bookmarks, and notes are stored in your account and available on any device you sign in to.",
+            },
+            {
+              q: "Does it work offline?",
+              a: "Not yet — Parakletos currently requires an internet connection to load Bible text. Offline reading is on our roadmap.",
+            },
+            {
+              q: "How is this different from YouVersion or Bible Gateway?",
+              a: "We built Parakletos for serious study: no ads, no social feeds, no distractions — just a clean reading experience with powerful annotation tools, multiple translations side-by-side, and structured reading plans.",
+            },
+          ].map(({ q, a }) => (
+            <div key={q} className="px-6 py-5">
+              <p className="font-medium text-sm mb-1.5">{q}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{a}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* Footer */}
