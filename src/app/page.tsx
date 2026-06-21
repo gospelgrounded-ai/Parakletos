@@ -108,7 +108,12 @@ export default function LandingPage() {
           <BookOpen className="h-4 w-4 text-primary" />
           <span className="font-serif font-semibold text-foreground">Parakletos</span>
         </div>
-        <p>Built for those who love the Word.</p>
+        <p className="mb-3">Built for those who love the Word.</p>
+        <div className="flex items-center justify-center gap-4 text-xs">
+          <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
+          <span>·</span>
+          <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+        </div>
       </footer>
     </div>
   );

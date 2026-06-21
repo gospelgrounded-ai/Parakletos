@@ -10,23 +10,36 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isAuthPage =
-        nextUrl.pathname.startsWith("/login") ||
-        nextUrl.pathname.startsWith("/register");
-      const isApiAuth = nextUrl.pathname.startsWith("/api/auth");
-      const isApiPublic = nextUrl.pathname.startsWith("/api/bible");
-      const isLanding = nextUrl.pathname === "/";
+      const { pathname } = nextUrl;
 
-      if (isApiAuth || isApiPublic || isLanding) return true;
+      // Always public — API routes
+      if (pathname.startsWith("/api/auth") || pathname.startsWith("/api/bible")) return true;
 
-      if (isAuthPage) {
+      // Always public — marketing, legal, and password recovery
+      if (
+        pathname === "/" ||
+        pathname.startsWith("/terms") ||
+        pathname.startsWith("/privacy") ||
+        pathname.startsWith("/forgot-password") ||
+        pathname.startsWith("/reset-password")
+      ) {
+        return true;
+      }
+
+      // Always public — Bible reading (any specific chapter)
+      // /bible/<translation>/<book>/<chapter>
+      if (/^\/bible\/[^/]+\/\d+\/\d+/.test(pathname)) return true;
+
+      // Auth pages redirect already-logged-in users into the app
+      if (pathname.startsWith("/login") || pathname.startsWith("/register")) {
         if (isLoggedIn) return Response.redirect(new URL("/bible", nextUrl));
         return true;
       }
 
+      // Everything else requires a session
       if (!isLoggedIn) {
         const loginUrl = new URL("/login", nextUrl);
-        loginUrl.searchParams.set("callbackUrl", nextUrl.pathname);
+        loginUrl.searchParams.set("callbackUrl", pathname);
         return Response.redirect(loginUrl);
       }
 
