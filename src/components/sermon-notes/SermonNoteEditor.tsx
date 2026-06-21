@@ -201,36 +201,32 @@ export default function SermonNoteEditor({ note }: Props) {
           {/* Notes */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Notes</Label>
-            <Textarea
-              value={notes}
-              onChange={(e) => handleChange("notes", e.target.value)}
-              placeholder={
-                "Type your sermon notes here…\n\nScripture references like John 3:16 or Romans 8 will be automatically detected in the panel."
-              }
-              className="min-h-[420px] resize-y font-mono text-sm leading-relaxed"
-            />
-          </div>
 
-          {/* Mobile scripture chips */}
-          {detectedRefs.length > 0 && (
-            <div className="lg:hidden space-y-2 pt-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <BookOpen className="h-4 w-4 text-primary" />
-                Scripture References
-              </div>
-              <div className="flex flex-wrap gap-2">
+            {/* Mobile: scripture chips appear above the textarea so they're always visible */}
+            {detectedRefs.length > 0 && (
+              <div className="lg:hidden flex flex-wrap gap-1.5 pb-1">
                 {detectedRefs.map((ref) => (
                   <Link
                     key={ref.key}
                     href={`/bible/KJV/${ref.book}/${ref.chapter}${ref.verse ? `#v${ref.verse}` : ""}`}
-                    className="rounded-full border px-3 py-1 text-xs font-medium hover:bg-muted transition-colors"
+                    className="inline-flex items-center gap-1 rounded-full border border-primary/40 px-2.5 py-0.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
                   >
+                    <BookOpen className="h-3 w-3" />
                     {ref.display}
                   </Link>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+
+            <Textarea
+              value={notes}
+              onChange={(e) => handleChange("notes", e.target.value)}
+              placeholder={
+                "Type your sermon notes here…\n\nScripture references like John 3:16 or Romans 8 will be automatically detected."
+              }
+              className="min-h-[200px] sm:min-h-[420px] resize-y font-mono text-sm leading-relaxed"
+            />
+          </div>
         </div>
 
         {/* Right: scripture sidebar (desktop only) */}
