@@ -372,7 +372,10 @@ export default function AudioPlayer({
 
   const currentVerse = verses[currentIdx];
   const canPlay = ttsMode === "openai" || ttsMode === "detecting" || browserSupported;
-  const showVoiceSelect = ttsMode === "openai" || ttsMode === "browser";
+  // Show OpenAI voices immediately for authenticated users (even before first play resolves);
+  // show browser voice picker once we know we're in browser mode.
+  const showOpenAIVoices = isAuthenticated && ttsMode !== "browser";
+  const showBrowserVoices = ttsMode === "browser" && browserVoices.length > 1;
 
   return (
     <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 z-30 border-t bg-card/95 backdrop-blur-sm shadow-lg md:left-16 lg:left-[220px]">
@@ -444,7 +447,7 @@ export default function AudioPlayer({
               key={s}
               onClick={() => handleSpeed(s)}
               className={cn(
-                "text-[10px] font-mono px-1 sm:px-1.5 py-0.5 rounded transition-colors",
+                "text-[10px] font-mono px-1 py-0.5 rounded transition-colors",
                 speed === s
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -456,34 +459,34 @@ export default function AudioPlayer({
         </div>
 
         {/* Voice selector */}
-        {showVoiceSelect &&
-          (ttsMode === "openai" ? (
-            <select
-              value={openaiVoice}
-              onChange={(e) => handleOpenAIVoice(e.target.value as OpenAIVoice)}
-              className="hidden sm:block text-xs rounded px-1.5 py-0.5 bg-muted border-0 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer"
-              aria-label="Voice"
-            >
-              {OPENAI_VOICES.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.label}
-                </option>
-              ))}
-            </select>
-          ) : browserVoices.length > 1 ? (
-            <select
-              value={selectedBrowserVoice}
-              onChange={(e) => handleBrowserVoice(e.target.value)}
-              className="hidden sm:block text-xs rounded px-1.5 py-0.5 bg-muted border-0 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer max-w-[80px] truncate"
-              aria-label="Voice"
-            >
-              {browserVoices.map((v) => (
-                <option key={v.voiceURI} value={v.voiceURI}>
-                  {v.name.replace(/\(.*?\)/g, "").trim()}
-                </option>
-              ))}
-            </select>
-          ) : null)}
+        {showOpenAIVoices && (
+          <select
+            value={openaiVoice}
+            onChange={(e) => handleOpenAIVoice(e.target.value as OpenAIVoice)}
+            className="text-xs rounded px-1.5 py-0.5 bg-muted border-0 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer shrink-0"
+            aria-label="Voice"
+          >
+            {OPENAI_VOICES.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.label}
+              </option>
+            ))}
+          </select>
+        )}
+        {showBrowserVoices && (
+          <select
+            value={selectedBrowserVoice}
+            onChange={(e) => handleBrowserVoice(e.target.value)}
+            className="text-xs rounded px-1.5 py-0.5 bg-muted border-0 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer max-w-[90px] shrink-0"
+            aria-label="Voice"
+          >
+            {browserVoices.map((v) => (
+              <option key={v.voiceURI} value={v.voiceURI}>
+                {v.name.replace(/\(.*?\)/g, "").trim()}
+              </option>
+            ))}
+          </select>
+        )}
 
         {/* Close */}
         <Button
