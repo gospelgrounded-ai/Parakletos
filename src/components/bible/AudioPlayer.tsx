@@ -10,17 +10,12 @@ import { cn } from "@/lib/utils";
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2] as const;
 type Speed = (typeof SPEEDS)[number];
 
-const OPENAI_VOICES = [
-  { id: "onyx", label: "Onyx" },
-  { id: "nova", label: "Nova" },
-  { id: "alloy", label: "Alloy" },
-  { id: "echo", label: "Echo" },
-  { id: "fable", label: "Fable" },
-  { id: "shimmer", label: "Shimmer" },
-] as const;
-type OpenAIVoice = (typeof OPENAI_VOICES)[number]["id"];
+type TtsMode = "detecting" | "api" | "browser";
 
-type TtsMode = "detecting" | "openai" | "browser";
+interface VoiceOption {
+  id: string;
+  name: string;
+}
 
 const browserSupported =
   typeof window !== "undefined" && "speechSynthesis" in window;
@@ -56,7 +51,8 @@ export default function AudioPlayer({
   const [ttsMode, setTtsMode] = useState<TtsMode>(
     isAuthenticated ? "detecting" : "browser"
   );
-  const [openaiVoice, setOpenaiVoice] = useState<OpenAIVoice>("onyx");
+  const [apiVoices, setApiVoices] = useState<VoiceOption[]>([]);
+  const [selectedApiVoice, setSelectedApiVoice] = useState("");
   const [browserVoices, setBrowserVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedBrowserVoice, setSelectedBrowserVoice] = useState("");
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
@@ -66,7 +62,7 @@ export default function AudioPlayer({
   const currentIdxRef = useRef(0);
   const speedRef = useRef<Speed>(1);
   const ttsModeRef = useRef<TtsMode>(isAuthenticated ? "detecting" : "browser");
-  const openaiVoiceRef = useRef<OpenAIVoice>("onyx");
+  const apiVoiceRef = useRef("");
   const browserVoiceRef = useRef("");
 
   // Audio element refs
@@ -77,6 +73,31 @@ export default function AudioPlayer({
   // "Latest play function" ref — lets onended/onend call the current version
   // without capturing a stale closure.
   const playVerseRef = useRef<(idx: number) => void>(() => {});
+
+  // ─── Fetch API voices on mount ────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    fetch("/api/audio/tts/voices")
+      .then((r) => r.json())
+      .then((data: { service: string | null; voices: VoiceOption[]; defaultVoice: string }) => {
+        if (data.service && data.voices.length > 0) {
+          setApiVoices(data.voices);
+          setSelectedApiVoice(data.defaultVoice);
+          apiVoiceRef.current = data.defaultVoice;
+          ttsModeRef.current = "api";
+          setTtsMode("api");
+        } else {
+          // No API key configured — fall back to browser TTS
+          ttsModeRef.current = "browser";
+          setTtsMode("browser");
+        }
+      })
+      .catch(() => {
+        ttsModeRef.current = "browser";
+        setTtsMode("browser");
+      });
+  }, [isAuthenticated]);
 
   // ─── Browser voice loading ─────────────────────────────────────────────────
 
@@ -152,9 +173,9 @@ export default function AudioPlayer({
     setIsLoadingAudio(false);
   }
 
-  // ─── OpenAI TTS playback ──────────────────────────────────────────────────
+  // ─── API TTS playback (ElevenLabs or OpenAI) ─────────────────────────────
 
-  function playVerseOpenAI(idx: number) {
+  function playVerseApi(idx: number) {
     if (idx >= verses.length) {
       stopAll();
       setCurrentIdx(0);
@@ -163,7 +184,6 @@ export default function AudioPlayer({
       return;
     }
 
-    // Stop any current audio
     if (audioElRef.current) {
       audioElRef.current.pause();
       audioElRef.current.src = "";
@@ -188,7 +208,7 @@ export default function AudioPlayer({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         text: stripHtml(verses[idx].text),
-        voice: openaiVoiceRef.current,
+        voice: apiVoiceRef.current,
       }),
     })
       .then(async (res) => {
@@ -208,8 +228,8 @@ export default function AudioPlayer({
         }
 
         if (ttsModeRef.current === "detecting") {
-          ttsModeRef.current = "openai";
-          setTtsMode("openai");
+          ttsModeRef.current = "api";
+          setTtsMode("api");
         }
 
         if (!isPlayingRef.current) {
@@ -296,13 +316,13 @@ export default function AudioPlayer({
 
   // Keep the ref pointing at the current play function each render
   playVerseRef.current =
-    ttsModeRef.current === "browser" ? playVerseBrowser : playVerseOpenAI;
+    ttsModeRef.current === "browser" ? playVerseBrowser : playVerseApi;
 
   // ─── Control handlers ─────────────────────────────────────────────────────
 
   function playVerse(idx: number) {
     if (ttsModeRef.current === "browser") playVerseBrowser(idx);
-    else playVerseOpenAI(idx);
+    else playVerseApi(idx);
   }
 
   function handlePlayPause() {
@@ -352,11 +372,11 @@ export default function AudioPlayer({
     }
   }
 
-  function handleOpenAIVoice(v: OpenAIVoice) {
-    openaiVoiceRef.current = v;
-    setOpenaiVoice(v);
-    if (isPlayingRef.current && ttsModeRef.current === "openai") {
-      playVerseOpenAI(currentIdxRef.current);
+  function handleApiVoice(v: string) {
+    apiVoiceRef.current = v;
+    setSelectedApiVoice(v);
+    if (isPlayingRef.current && ttsModeRef.current !== "browser") {
+      playVerseApi(currentIdxRef.current);
     }
   }
 
@@ -371,10 +391,8 @@ export default function AudioPlayer({
   // ─── Render ───────────────────────────────────────────────────────────────
 
   const currentVerse = verses[currentIdx];
-  const canPlay = ttsMode === "openai" || ttsMode === "detecting" || browserSupported;
-  // Show OpenAI voices immediately for authenticated users (even before first play resolves);
-  // show browser voice picker once we know we're in browser mode.
-  const showOpenAIVoices = isAuthenticated && ttsMode !== "browser";
+  const canPlay = ttsMode === "api" || ttsMode === "detecting" || browserSupported;
+  const showApiVoices = isAuthenticated && ttsMode !== "browser" && apiVoices.length > 0;
   const showBrowserVoices = ttsMode === "browser" && browserVoices.length > 1;
 
   return (
@@ -459,16 +477,16 @@ export default function AudioPlayer({
         </div>
 
         {/* Voice selector */}
-        {showOpenAIVoices && (
+        {showApiVoices && (
           <select
-            value={openaiVoice}
-            onChange={(e) => handleOpenAIVoice(e.target.value as OpenAIVoice)}
-            className="text-xs rounded px-1.5 py-0.5 bg-muted border-0 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer shrink-0"
+            value={selectedApiVoice}
+            onChange={(e) => handleApiVoice(e.target.value)}
+            className="text-xs rounded px-1.5 py-0.5 bg-muted border-0 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer max-w-[100px] shrink-0"
             aria-label="Voice"
           >
-            {OPENAI_VOICES.map((v) => (
+            {apiVoices.map((v) => (
               <option key={v.id} value={v.id}>
-                {v.label}
+                {v.name}
               </option>
             ))}
           </select>
