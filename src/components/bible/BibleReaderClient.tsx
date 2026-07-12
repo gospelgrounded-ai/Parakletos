@@ -337,6 +337,8 @@ export default function BibleReaderClient({
       {audioMode && (
         <AudioPlayer
           verses={verses}
+          translation={translation}
+          book={book}
           bookName={bookName}
           chapter={chapter}
           isAuthenticated={isAuthenticated}

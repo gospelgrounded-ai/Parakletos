@@ -9,8 +9,22 @@ const registerSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
+const MAX_REGISTRATIONS_PER_DAY = 25;
+
 export async function POST(request: Request) {
   try {
+    const startOfDayUtc = new Date();
+    startOfDayUtc.setUTCHours(0, 0, 0, 0);
+    const todayCount = await db.user.count({
+      where: { createdAt: { gte: startOfDayUtc } },
+    });
+    if (todayCount >= MAX_REGISTRATIONS_PER_DAY) {
+      return NextResponse.json(
+        { error: "Registration is temporarily unavailable — please try again tomorrow." },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
 
     const parsed = registerSchema.safeParse(body);

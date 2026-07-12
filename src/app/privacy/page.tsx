@@ -60,18 +60,26 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-lg font-semibold mb-3">4. Third-Party Services</h2>
             <p className="text-muted-foreground leading-relaxed">
-              We use the following third-party services: <strong>Bolls.life</strong> for Bible text
-              (no personal data is sent); <strong>Google OAuth</strong> (optional, for sign-in);
-              and <strong>Vercel</strong> for hosting. These services have their own privacy policies.
+              We use the following third-party services: <strong>Bolls.life</strong> for Bible text,{" "}
+              <strong>bible.helloao.org</strong>, <strong>Open Scriptures</strong>, and{" "}
+              <strong>openbible.info</strong> for study data (no personal data is sent to any of
+              these); <strong>ElevenLabs</strong> or <strong>OpenAI</strong> for optional text-to-speech,
+              which receive only the verse text being read aloud, never your account details;{" "}
+              <strong>Google OAuth</strong> (optional, for sign-in); and <strong>Vercel</strong> and{" "}
+              <strong>Neon</strong> for hosting and database storage. These services have their own
+              privacy policies.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold mb-3">5. Your Rights</h2>
             <p className="text-muted-foreground leading-relaxed">
-              You may request deletion of your account and all associated data at any time by
-              contacting us through the app. You may also export your notes and highlights from
-              within your account settings.
+              From your <Link href="/settings" className="underline hover:text-foreground">Settings</Link> page
+              you can export a copy of your data (highlights, bookmarks, notes, sermon notes, reading
+              plans, and preferences) as a JSON file, or permanently delete your account and all
+              associated data. Account deletion is immediate and cannot be undone. If you need help
+              with either, email{" "}
+              <a href="mailto:support@parakletos.app" className="underline hover:text-foreground">support@parakletos.app</a>.
             </p>
           </section>
 
@@ -102,7 +110,8 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-lg font-semibold mb-3">9. Contact</h2>
             <p className="text-muted-foreground leading-relaxed">
-              For privacy questions or data requests, please contact us through the app.
+              For privacy questions or data requests, please email{" "}
+              <a href="mailto:support@parakletos.app" className="underline hover:text-foreground">support@parakletos.app</a>.
             </p>
           </section>
         </div>

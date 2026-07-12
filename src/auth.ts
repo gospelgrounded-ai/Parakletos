@@ -4,6 +4,7 @@ import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(db),
@@ -23,11 +24,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        const email = credentials.email as string;
+        const ip = clientIp(request);
+        const allowed = await checkRateLimit(`login:${email.toLowerCase()}:${ip}`, 10);
+        if (!allowed) return null;
+
         const user = await db.user.findUnique({
-          where: { email: credentials.email as string },
+          where: { email },
         });
 
         if (!user || !user.password) return null;
@@ -57,7 +63,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async session({ session, token }) {
       if (token.id) {
-        session.user.id = token.id as string;
+        // A deleted account can still carry a valid JWT until it expires;
+        // verify the user still exists so downstream routes' existing
+        // `if (!session?.user?.id) return 401` guards catch ghost sessions
+        // instead of throwing a foreign-key 500.
+        const exists = await db.user
+          .findUnique({ where: { id: token.id as string }, select: { id: true } })
+          .catch(() => null);
+        if (exists) {
+          session.user.id = token.id as string;
+        }
       }
       return session;
     },

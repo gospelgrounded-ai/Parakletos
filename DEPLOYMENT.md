@@ -39,18 +39,34 @@ In the same import screen, expand **"Environment Variables"** and add:
 | `DIRECT_URL` | The direct connection string from Neon |
 | `AUTH_SECRET` | The string from Step 2 |
 | `NEXTAUTH_URL` | `https://your-project-name.vercel.app` (use your actual Vercel URL — you can update this after first deploy) |
+| `ELEVENLABS_API_KEY` | Optional — enables premium audio-Bible narration ([get a key](https://elevenlabs.io/app/settings/api-keys)) |
+| `OPENAI_API_KEY` | Optional — used for audio-Bible narration if ElevenLabs isn't set ([get a key](https://platform.openai.com/api-keys)) |
 
-## Step 5 — Deploy
+## Step 5 — Push the database schema
 
-Click **Deploy**. The first build will:
+The build command (`prisma generate && next build`) does **not** touch the
+database — it only regenerates the Prisma client. You must push the schema
+and seed the reading plans yourself, once, before (or right after) the first
+deploy:
+
+```bash
+# with DATABASE_URL and DIRECT_URL set in your local .env.local,
+# pointed at the same Neon project you configured in Vercel:
+npm run db:deploy   # = prisma db push && tsx prisma/seed.ts
+```
+
+Run `npm run db:push` again any time the schema changes (e.g. after pulling
+an update) — it's additive-only and safe to re-run.
+
+## Step 6 — Deploy
+
+Click **Deploy**. The build will:
 1. Install dependencies (`npm install` → runs `prisma generate`)
-2. Push schema to Neon (`prisma db push`)
-3. Seed reading plans (`tsx prisma/seed.ts`)
-4. Build Next.js
+2. Build Next.js
 
 This takes ~2 minutes. Once done you'll get a live URL.
 
-## Step 6 — Fix NEXTAUTH_URL
+## Step 7 — Fix NEXTAUTH_URL
 
 After the first deploy, Vercel shows your actual URL (e.g. `parakletos-abc123.vercel.app`).
 Go to **Vercel → Project → Settings → Environment Variables** and update `NEXTAUTH_URL` to match, then redeploy.
@@ -71,4 +87,9 @@ DATABASE_URL="<your neon pooled URL>"
 DIRECT_URL="<your neon direct URL>"
 AUTH_SECRET="<your secret>"
 NEXTAUTH_URL="http://localhost:3000"
+# Optional — audio-Bible narration:
+ELEVENLABS_API_KEY="<your key>"
+OPENAI_API_KEY="<your key>"
 ```
+
+Then push the schema locally with `npm run db:deploy` (see Step 5 above).

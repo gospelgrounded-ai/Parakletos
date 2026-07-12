@@ -30,6 +30,7 @@ model User {
   settings        UserSettings?
   dailyReadings   DailyReading[]
   sermonNotes     SermonNote[]
+  ttsUsage        TtsUsage[]
 }
 
 model Account {
@@ -156,6 +157,67 @@ model DailyReading {
 
   @@unique([userId, date])
   @@index([userId])
+}
+
+// ─── Caching / cost & abuse control ──────────────────────────────────────────
+
+// Read-through cache of generated TTS audio, keyed by verse reference + voice
+// so requests are never trusted to carry arbitrary billable text.
+model AudioCache {
+  id          String   @id @default(cuid())
+  translation String
+  book        Int
+  chapter     Int
+  verse       Int
+  voice       String
+  service     String // "elevenlabs" | "openai"
+  audio       Bytes
+  createdAt   DateTime @default(now())
+
+  @@unique([translation, book, chapter, verse, voice, service])
+  @@index([createdAt])
+}
+
+// Per-user daily character quota for TTS generation (incremented atomically).
+model TtsUsage {
+  id        String @id @default(cuid())
+  userId    String
+  date      String // YYYY-MM-DD (UTC)
+  charCount Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([date])
+}
+
+// Read-through cache of cleaned chapter text, so a Bolls.life outage doesn't
+// take down previously-read chapters.
+model ChapterCache {
+  id          String   @id @default(cuid())
+  translation String
+  book        Int
+  chapter     Int
+  verses      Json
+  fetchedAt   DateTime @default(now())
+
+  @@unique([translation, book, chapter])
+}
+
+// Read-through cache of a translation's book list.
+model BookListCache {
+  id          String   @id @default(cuid())
+  translation String   @unique
+  books       Json
+  fetchedAt   DateTime @default(now())
+}
+
+// Sliding-window counters for login/registration rate limiting.
+model RateLimit {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  count       Int      @default(0)
+  windowStart DateTime @default(now())
 }
 
 // ─── Sermon Notes ────────────────────────────────────────────────────────────

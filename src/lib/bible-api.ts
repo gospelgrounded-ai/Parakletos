@@ -1,3 +1,5 @@
+import { db } from "@/lib/db";
+
 const BOLLS_BASE = "https://bolls.life";
 
 export interface BollsVerse {
@@ -76,18 +78,41 @@ export async function fetchTranslations(): Promise<BollsLanguageGroup[]> {
   }));
 }
 
+/**
+ * Read-through cache: on a successful Bolls fetch, persist the cleaned verse
+ * list so a later Bolls outage doesn't take down a chapter someone already
+ * read. On failure, fall back to whatever we last cached (if anything).
+ */
 export async function fetchChapter(
   translation: string,
   book: number,
   chapter: number
 ): Promise<BollsVerse[]> {
-  const res = await fetch(
-    `${BOLLS_BASE}/get-text/${translation}/${book}/${chapter}/`,
-    FETCH_OPTIONS
-  );
-  if (!res.ok) throw new Error(`Failed to fetch ${translation} ${book}:${chapter}`);
-  const verses = (await res.json()) as BollsVerse[];
-  return verses.map((v) => ({ ...v, text: cleanVerseText(v.text) }));
+  try {
+    const res = await fetch(
+      `${BOLLS_BASE}/get-text/${translation}/${book}/${chapter}/`,
+      FETCH_OPTIONS
+    );
+    if (!res.ok) throw new Error(`Failed to fetch ${translation} ${book}:${chapter}`);
+    const raw = (await res.json()) as BollsVerse[];
+    const verses = raw.map((v) => ({ ...v, text: cleanVerseText(v.text) }));
+    if (verses.length > 0) {
+      await db.chapterCache
+        .upsert({
+          where: { translation_book_chapter: { translation, book, chapter } },
+          create: { translation, book, chapter, verses },
+          update: { verses, fetchedAt: new Date() },
+        })
+        .catch(() => {});
+    }
+    return verses;
+  } catch (err) {
+    const cached = await db.chapterCache
+      .findUnique({ where: { translation_book_chapter: { translation, book, chapter } } })
+      .catch(() => null);
+    if (cached) return cached.verses as unknown as BollsVerse[];
+    throw err;
+  }
 }
 
 export interface StrongsToken {
@@ -156,12 +181,27 @@ export async function searchBible(
 export async function fetchBookList(
   translation: string
 ): Promise<Array<{ bookid: number; name: string; chapters: number }>> {
-  const res = await fetch(
-    `${BOLLS_BASE}/get-book-list/${translation}/`,
-    FETCH_OPTIONS
-  );
-  if (!res.ok) return [];
-  return res.json();
+  try {
+    const res = await fetch(
+      `${BOLLS_BASE}/get-book-list/${translation}/`,
+      FETCH_OPTIONS
+    );
+    if (!res.ok) throw new Error(`Failed to fetch book list for ${translation}`);
+    const books = await res.json();
+    if (Array.isArray(books) && books.length > 0) {
+      await db.bookListCache
+        .upsert({
+          where: { translation },
+          create: { translation, books },
+          update: { books, fetchedAt: new Date() },
+        })
+        .catch(() => {});
+    }
+    return books;
+  } catch {
+    const cached = await db.bookListCache.findUnique({ where: { translation } }).catch(() => null);
+    return cached ? (cached.books as unknown as Array<{ bookid: number; name: string; chapters: number }>) : [];
+  }
 }
 
 // Ordered list of English translation codes to pin at the top of selectors.

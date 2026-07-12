@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Pause, Play, Volume2, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,8 @@ function stripHtml(html: string): string {
 
 interface AudioPlayerProps {
   verses: Array<{ verse: number; text: string }>;
+  translation: string;
+  book: number;
   bookName: string;
   chapter: number;
   isAuthenticated?: boolean;
@@ -39,6 +42,8 @@ interface AudioPlayerProps {
 
 export default function AudioPlayer({
   verses,
+  translation,
+  book,
   bookName,
   chapter,
   isAuthenticated = false,
@@ -207,13 +212,25 @@ export default function AudioPlayer({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        text: stripHtml(verses[idx].text),
+        translation,
+        book,
+        chapter,
+        verse: verses[idx].verse,
         voice: apiVoiceRef.current,
       }),
     })
       .then(async (res) => {
         if (res.status === 503) {
           // No API key — fall back to browser TTS
+          ttsModeRef.current = "browser";
+          setTtsMode("browser");
+          setIsLoadingAudio(false);
+          if (isPlayingRef.current) playVerseBrowser(idx);
+          return;
+        }
+        if (res.status === 429) {
+          // Daily audio limit reached — fall back to browser TTS and keep going
+          toast.message("Daily audio limit reached — switching to device voice");
           ttsModeRef.current = "browser";
           setTtsMode("browser");
           setIsLoadingAudio(false);

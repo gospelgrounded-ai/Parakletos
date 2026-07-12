@@ -2,9 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
+import { signOut } from "next-auth/react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Check, Save } from "lucide-react";
+import { Check, Save, Download, Trash2 } from "lucide-react";
 import { useTranslations } from "@/hooks/useTranslations";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 const FONT_FAMILIES = [
   { value: "serif", label: "Serif (Georgia)" },
@@ -48,16 +58,77 @@ export default function SettingsPage() {
     defaultTranslation: "KJV",
   });
   const [saved, setSaved] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [hasPassword, setHasPassword] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   // Load from localStorage on mount
   useEffect(() => {
     setSettings(loadSettings());
   }, []);
 
+  useEffect(() => {
+    fetch("/api/user/account")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { hasPassword: boolean } | null) => {
+        if (data) setHasPassword(data.hasPassword);
+      })
+      .catch(() => {});
+  }, []);
+
   function handleSave() {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const res = await fetch("/api/user/export");
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `parakletos-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Your data has been downloaded");
+    } catch {
+      toast.error("Failed to export your data");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setDeleteError("");
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/user/account", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          password: hasPassword ? deletePassword : undefined,
+          confirmText: deleteConfirmText,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setDeleteError(data.error ?? "Failed to delete account");
+        setDeleting(false);
+        return;
+      }
+      await signOut({ callbackUrl: "/" });
+    } catch {
+      setDeleteError("Failed to delete account");
+      setDeleting(false);
+    }
   }
 
   return (
@@ -233,7 +304,115 @@ export default function SettingsPage() {
             </>
           )}
         </button>
+
+        {/* Account */}
+        <section className="space-y-5">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Account
+          </h2>
+          <div className="rounded-xl border divide-y">
+            <div className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium">Export your data</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Download a JSON copy of your highlights, bookmarks, notes, sermon notes, and
+                  reading plans.
+                </p>
+              </div>
+              <button
+                onClick={handleExport}
+                disabled={exporting}
+                className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50 shrink-0"
+              >
+                <Download className="h-4 w-4" />
+                {exporting ? "Exporting…" : "Export data"}
+              </button>
+            </div>
+            <div className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-destructive">Delete account</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Permanently delete your account and all associated data. This cannot be undone.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setDeleteError("");
+                  setDeletePassword("");
+                  setDeleteConfirmText("");
+                  setDeleteOpen(true);
+                }}
+                className="inline-flex items-center gap-2 rounded-lg border border-destructive/40 text-destructive px-4 py-2 text-sm font-medium hover:bg-destructive/10 transition-colors shrink-0"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete account
+              </button>
+            </div>
+          </div>
+        </section>
       </div>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete your account?</DialogTitle>
+            <DialogDescription>
+              This permanently deletes your account and all highlights, bookmarks, notes, sermon
+              notes, and reading plan progress. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {hasPassword && (
+              <div>
+                <label htmlFor="delete-password" className="text-sm font-medium block mb-1.5">
+                  Confirm your password
+                </label>
+                <input
+                  id="delete-password"
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+            )}
+            <div>
+              <label htmlFor="delete-confirm" className="text-sm font-medium block mb-1.5">
+                Type <span className="font-mono font-semibold">DELETE</span> to confirm
+              </label>
+              <input
+                id="delete-confirm"
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
+          </div>
+
+          <DialogFooter>
+            <button
+              onClick={() => setDeleteOpen(false)}
+              className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeleteAccount}
+              disabled={
+                deleting ||
+                deleteConfirmText.trim().toUpperCase() !== "DELETE" ||
+                (hasPassword && !deletePassword)
+              }
+              className="rounded-lg bg-destructive text-destructive-foreground px-4 py-2 text-sm font-medium hover:bg-destructive/90 transition-colors disabled:opacity-50"
+            >
+              {deleting ? "Deleting…" : "Delete my account"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

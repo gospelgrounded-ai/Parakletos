@@ -41,10 +41,10 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-semibold mb-3">2. Description of Service</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Parakletos is a personal Bible study application that provides access to public-domain
-              Bible translations, tools for highlighting and annotating scripture, reading plans, and
-              sermon note-taking features. The Service is currently offered free of charge for
-              personal, non-commercial use.
+              Parakletos is a personal Bible study application that provides access to numerous
+              Bible translations (see §5 below regarding their licensing), tools for highlighting
+              and annotating scripture, reading plans, and sermon note-taking features. The Service
+              is currently offered free of charge for personal, non-commercial use.
             </p>
           </section>
 
@@ -69,15 +69,35 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-semibold mb-3">5. Bible Translations</h2>
             <p className="text-muted-foreground leading-relaxed">
-              The Bible translations available through the Service are sourced from Bolls.life and
-              are either in the public domain or provided under open licences. We do not claim
-              ownership of any translation text. Translations are used for personal study purposes
-              only.
+              The Bible translations available through the Service are sourced from Bolls.life.
+              Some translations are in the public domain; others remain under copyright held by
+              their respective publishers (for example, the New King James Version, the NET Bible,
+              and the International Standard Version) and are made available here for personal,
+              non-commercial study only. Parakletos does not claim ownership of any translation
+              text. The Service is currently offered on a non-commercial, personal-use basis while
+              we seek the appropriate licensing permissions from copyright holders in preparation
+              for any future commercial or public launch.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">6. Prohibited Uses</h2>
+            <h2 className="text-lg font-semibold mb-3">6. Attribution</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              Parakletos relies on the following third-party sources for Bible text and study data:
+              Bible text and translations from{" "}
+              <a href="https://bolls.life" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Bolls.life</a>;
+              commentaries from{" "}
+              <a href="https://bible.helloao.org" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">bible.helloao.org</a>{" "}
+              (public domain); the Strong&apos;s lexicon from{" "}
+              <a href="https://openscriptures.org" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Open Scriptures</a>{" "}
+              (CC BY-SA); and cross-references from the Treasury of Scripture Knowledge via{" "}
+              <a href="https://openbible.info" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">openbible.info</a>{" "}
+              (CC BY). We are grateful for these openly available resources.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-3">7. Prohibited Uses</h2>
             <p className="text-muted-foreground leading-relaxed">
               You agree not to use the Service to: (a) violate any applicable laws or regulations;
               (b) transmit any harmful, offensive, or unlawful content; (c) attempt to gain
@@ -87,7 +107,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">7. Disclaimer of Warranties</h2>
+            <h2 className="text-lg font-semibold mb-3">8. Disclaimer of Warranties</h2>
             <p className="text-muted-foreground leading-relaxed">
               The Service is provided &ldquo;as is&rdquo; without warranties of any kind. We do not
               guarantee that the Service will be uninterrupted, error-free, or that any defects will
@@ -96,7 +116,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">8. Changes to Terms</h2>
+            <h2 className="text-lg font-semibold mb-3">9. Changes to Terms</h2>
             <p className="text-muted-foreground leading-relaxed">
               We reserve the right to update these terms at any time. Continued use of the Service
               after changes constitutes acceptance of the new terms.
@@ -104,9 +124,10 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">9. Contact</h2>
+            <h2 className="text-lg font-semibold mb-3">10. Contact</h2>
             <p className="text-muted-foreground leading-relaxed">
-              For questions about these terms, please contact us through the app.
+              For questions about these terms, please email{" "}
+              <a href="mailto:support@parakletos.app" className="underline hover:text-foreground">support@parakletos.app</a>.
             </p>
           </section>
         </div>
