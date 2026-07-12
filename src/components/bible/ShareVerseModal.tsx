@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 
 interface ShareVerseModalProps {
   verse: number;
+  verseEnd?: number;
   text: string;
   translation: string;
   book: number;
@@ -117,6 +118,7 @@ async function generateCard(
 
 export default function ShareVerseModal({
   verse,
+  verseEnd,
   text,
   translation,
   book,
@@ -127,7 +129,7 @@ export default function ShareVerseModal({
   const [generating, setGenerating] = useState(false);
   const [textCopied, setTextCopied] = useState(false);
 
-  const ref = formatReference(book, chapter, verse);
+  const ref = formatReference(book, chapter, verse, verseEnd);
   const shareText = `"${text}" — ${ref} (${translation})`;
 
   async function handleCopyText() {

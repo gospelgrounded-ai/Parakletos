@@ -32,6 +32,8 @@ model User {
   sermonNotes     SermonNote[]
   ttsUsage        TtsUsage[]
   passwordResetTokens PasswordResetToken[]
+  prayerEntries   PrayerEntry[]
+  memoryVerses    MemoryVerse[]
 }
 
 model Account {
@@ -231,6 +233,42 @@ model RateLimit {
   key         String   @unique
   count       Int      @default(0)
   windowStart DateTime @default(now())
+}
+
+// ─── Verse Memorization ───────────────────────────────────────────────────────
+
+model MemoryVerse {
+  id          String   @id @default(cuid())
+  userId      String
+  translation String
+  book        Int
+  chapter     Int
+  verse       Int
+  addedAt     DateTime @default(now())
+  box         Int      @default(1) // Leitner box, 1-5
+  nextReview  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, translation, book, chapter, verse])
+  @@index([userId, nextReview])
+}
+
+// ─── Prayer Journal ───────────────────────────────────────────────────────────
+
+model PrayerEntry {
+  id         String    @id @default(cuid())
+  userId     String
+  title      String    @default("")
+  content    String    @default("")
+  isAnswered Boolean   @default(false)
+  answeredAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // ─── Sermon Notes ────────────────────────────────────────────────────────────

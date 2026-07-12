@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { BookOpen, Highlighter, NotebookPen, Bookmark, Search, Users } from "lucide-react";
+import { getVerseOfTheDay } from "@/lib/votd";
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const votd = await getVerseOfTheDay("KJV");
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -50,6 +53,19 @@ export default function LandingPage() {
           </Link>
         </div>
       </section>
+
+      {/* Verse of the Day teaser */}
+      {votd && (
+        <section className="max-w-2xl mx-auto px-4 pb-16">
+          <div className="rounded-xl border bg-card p-6 text-center">
+            <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-3">
+              Today&apos;s Verse
+            </p>
+            <p className="font-serif text-lg leading-relaxed mb-2">&ldquo;{votd.text}&rdquo;</p>
+            <p className="text-sm text-muted-foreground">{votd.reference}</p>
+          </div>
+        </section>
+      )}
 
       {/* Features */}
       <section className="max-w-6xl mx-auto px-4 pb-24 space-y-6">

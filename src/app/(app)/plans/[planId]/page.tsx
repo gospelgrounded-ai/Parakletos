@@ -1,11 +1,12 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { BIBLE_BOOKS } from "@/lib/bible-books";
-import { CheckCircle2, Circle, BookOpen, ArrowLeft, PlayCircle } from "lucide-react";
+import { CheckCircle2, Circle, BookOpen, ArrowLeft, PlayCircle, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { getReflectionPrompt } from "@/lib/reflection-prompts";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -34,6 +35,7 @@ export default function PlanDetailPage({
   );
   const { data: userSettings } = useSWR("/api/user/settings", fetcher);
   const translation: string = userSettings?.defaultTranslation || "KJV";
+  const [justCompletedDay, setJustCompletedDay] = useState<number | null>(null);
 
   async function markDayComplete(dayNumber: number) {
     try {
@@ -43,6 +45,7 @@ export default function PlanDetailPage({
         body: JSON.stringify({ dayNumber }),
       });
       mutateProgress();
+      setJustCompletedDay(dayNumber);
       toast.success(`Day ${dayNumber} marked complete!`);
     } catch {
       toast.error("Failed to update progress");
@@ -152,6 +155,19 @@ export default function PlanDetailPage({
                     );
                   })}
                 </div>
+
+                {/* Reflection prompt — shown right after marking a day complete */}
+                {isComplete && justCompletedDay === day.dayNumber && (
+                  <div className="mt-3 rounded-lg bg-primary/5 border border-primary/10 p-3">
+                    <p className="text-xs font-medium text-primary mb-1 flex items-center gap-1">
+                      <Sparkles className="h-3 w-3" />
+                      Reflect
+                    </p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {getReflectionPrompt(day.dayNumber)}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* "Start reading" CTA for the current day */}

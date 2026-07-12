@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Highlighter,
   Bookmark,
@@ -12,6 +12,7 @@ import {
   Check,
   Share2,
   Trash2,
+  Brain,
 } from "lucide-react";
 import { toast } from "sonner";
 import { HIGHLIGHT_COLORS, type HighlightColor } from "@/types/index";
@@ -21,6 +22,7 @@ import ShareVerseModal from "./ShareVerseModal";
 
 interface VerseActionsBarProps {
   verse: number;
+  verseEnd?: number | null;
   text: string;
   translation: string;
   book: number;
@@ -35,12 +37,14 @@ interface VerseActionsBarProps {
   onBookmarkLabel: (label: string) => Promise<void>;
   onNote: (content: string) => Promise<void>;
   onDeleteNote: () => Promise<void>;
+  onMemorize: () => Promise<void>;
   onStudy: () => void;
   onClose: () => void;
 }
 
 export default function VerseActionsBar({
   verse,
+  verseEnd,
   text,
   translation,
   book,
@@ -55,6 +59,7 @@ export default function VerseActionsBar({
   onBookmarkLabel,
   onNote,
   onDeleteNote,
+  onMemorize,
   onStudy,
   onClose,
 }: VerseActionsBarProps) {
@@ -68,6 +73,15 @@ export default function VerseActionsBar({
   const [labelInput, setLabelInput] = useState(bookmarkLabel ?? "");
   const [isSavingLabel, setIsSavingLabel] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [memorized, setMemorized] = useState(false);
+
+  const isRange = !!verseEnd && verseEnd !== verse;
+
+  // This component instance is reused across verse selections (no key
+  // change on `verse`), so per-verse transient UI state must reset here.
+  useEffect(() => {
+    setMemorized(false);
+  }, [verse, verseEnd]);
 
   async function handleColorSelect(color: HighlightColor) {
     if (color === currentHighlight) {
@@ -80,8 +94,19 @@ export default function VerseActionsBar({
     setShowColors(false);
   }
 
+  async function handleMemorize() {
+    if (memorized) return;
+    try {
+      await onMemorize();
+      setMemorized(true);
+      toast.success("Added to memorization");
+    } catch {
+      toast.error("Failed to add verse");
+    }
+  }
+
   async function handleCopy() {
-    const ref = formatReference(book, chapter, verse);
+    const ref = formatReference(book, chapter, verse, verseEnd ?? undefined);
     await navigator.clipboard.writeText(`"${text}" — ${ref}`);
     setCopied(true);
     toast.success("Verse copied");
@@ -126,7 +151,7 @@ export default function VerseActionsBar({
     setShowBookmarkEditor(false);
   }
 
-  const ref = formatReference(book, chapter, verse);
+  const ref = formatReference(book, chapter, verse, verseEnd ?? undefined);
 
   return (
     <>
@@ -134,6 +159,7 @@ export default function VerseActionsBar({
       {showShareModal && (
         <ShareVerseModal
           verse={verse}
+          verseEnd={verseEnd ?? undefined}
           text={text}
           translation={translation}
           book={book}
@@ -286,46 +312,60 @@ export default function VerseActionsBar({
           )}
 
           {/* Action buttons */}
-          <div className="flex items-center justify-around p-2">
+          <div className="flex items-center justify-around flex-wrap gap-y-1 p-2">
             <ActionButton
               icon={<Highlighter className="h-5 w-5" />}
               label="Highlight"
               active={!!currentHighlight}
               onClick={() => setShowColors(!showColors)}
             />
-            <ActionButton
-              icon={
-                isBookmarked ? (
-                  <BookmarkCheck className="h-5 w-5" />
-                ) : (
-                  <Bookmark className="h-5 w-5" />
-                )
-              }
-              label={isBookmarked ? "Saved" : "Bookmark"}
-              active={isBookmarked}
-              onClick={() => {
-                if (isBookmarked) {
-                  setLabelInput(bookmarkLabel ?? "");
-                  setShowBookmarkEditor(true);
-                } else {
-                  onBookmark();
+            {!isRange && (
+              <ActionButton
+                icon={
+                  isBookmarked ? (
+                    <BookmarkCheck className="h-5 w-5" />
+                  ) : (
+                    <Bookmark className="h-5 w-5" />
+                  )
                 }
-              }}
-            />
-            <ActionButton
-              icon={<NotebookPen className="h-5 w-5" />}
-              label={hasNote ? "Edit Note" : "Add Note"}
-              active={hasNote}
-              onClick={() => {
-                setNoteContent(note?.content ?? "");
-                setShowNoteEditor(true);
-              }}
-            />
-            <ActionButton
-              icon={<BookOpenText className="h-5 w-5" />}
-              label="Study"
-              onClick={onStudy}
-            />
+                label={isBookmarked ? "Saved" : "Bookmark"}
+                active={isBookmarked}
+                onClick={() => {
+                  if (isBookmarked) {
+                    setLabelInput(bookmarkLabel ?? "");
+                    setShowBookmarkEditor(true);
+                  } else {
+                    onBookmark();
+                  }
+                }}
+              />
+            )}
+            {!isRange && (
+              <ActionButton
+                icon={<NotebookPen className="h-5 w-5" />}
+                label={hasNote ? "Edit Note" : "Add Note"}
+                active={hasNote}
+                onClick={() => {
+                  setNoteContent(note?.content ?? "");
+                  setShowNoteEditor(true);
+                }}
+              />
+            )}
+            {!isRange && (
+              <ActionButton
+                icon={<BookOpenText className="h-5 w-5" />}
+                label="Study"
+                onClick={onStudy}
+              />
+            )}
+            {!isRange && (
+              <ActionButton
+                icon={<Brain className="h-5 w-5" />}
+                label={memorized ? "Added" : "Memorize"}
+                active={memorized}
+                onClick={handleMemorize}
+              />
+            )}
             <ActionButton
               icon={copied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
               label="Copy"

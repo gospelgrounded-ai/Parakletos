@@ -12,6 +12,7 @@ interface VerseListProps {
   bookmarks: Set<number>;
   notes: Map<number, { id: string; content: string }>;
   selectedVerse: number | null;
+  rangeEnd?: number | null;
   readingVerse?: number | null;
   onVerseClick: (verse: number) => void;
 }
@@ -60,12 +61,16 @@ export default function VerseList({
   bookmarks,
   notes,
   selectedVerse,
+  rangeEnd,
   readingVerse,
   onVerseClick,
 }: VerseListProps) {
   const bookInfo = getBook(book);
   const bookName = bookInfo?.name ?? "Bible";
   const groups = buildVerseGroups(verses, book, chapter);
+
+  const rangeLow = selectedVerse !== null && rangeEnd != null ? Math.min(selectedVerse, rangeEnd) : null;
+  const rangeHigh = selectedVerse !== null && rangeEnd != null ? Math.max(selectedVerse, rangeEnd) : null;
 
   return (
     <article>
@@ -97,7 +102,11 @@ export default function VerseList({
                   highlight={highlights.get(verse.verse)}
                   isBookmarked={bookmarks.has(verse.verse)}
                   hasNote={notes.has(verse.verse)}
-                  isSelected={selectedVerse === verse.verse}
+                  isSelected={
+                    rangeLow !== null && rangeHigh !== null
+                      ? verse.verse >= rangeLow && verse.verse <= rangeHigh
+                      : selectedVerse === verse.verse
+                  }
                   isReading={readingVerse === verse.verse}
                   onClick={() => onVerseClick(verse.verse)}
                 />

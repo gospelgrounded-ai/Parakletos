@@ -324,8 +324,8 @@ export default function SettingsPage() {
               <div>
                 <p className="text-sm font-medium">Export your data</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Download a JSON copy of your highlights, bookmarks, notes, sermon notes, and
-                  reading plans.
+                  Download a JSON copy of your highlights, bookmarks, notes, sermon notes,
+                  prayer journal, and reading plans.
                 </p>
               </div>
               <button

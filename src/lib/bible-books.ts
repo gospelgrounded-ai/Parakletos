@@ -84,9 +84,19 @@ export function getBook(id: number): BibleBook | undefined {
   return BOOK_BY_ID.get(id);
 }
 
-export function formatReference(book: number, chapter: number, verse?: number): string {
+export function formatReference(
+  book: number,
+  chapter: number,
+  verse?: number,
+  verseEnd?: number
+): string {
   const b = getBook(book);
   if (!b) return "";
+  if (verse && verseEnd && verseEnd !== verse) {
+    const low = Math.min(verse, verseEnd);
+    const high = Math.max(verse, verseEnd);
+    return `${b.name} ${chapter}:${low}–${high}`;
+  }
   if (verse) return `${b.name} ${chapter}:${verse}`;
   return `${b.name} ${chapter}`;
 }

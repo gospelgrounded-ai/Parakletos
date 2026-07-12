@@ -3,14 +3,16 @@ import { db } from "@/lib/db";
 import { getBook } from "@/lib/bible-books";
 import Link from "next/link";
 import StreakWidget from "@/components/streak/StreakWidget";
-import { BookOpen, Calendar, Bookmark, ArrowRight, Flame } from "lucide-react";
+import VerseOfTheDayCard from "@/components/home/VerseOfTheDayCard";
+import { getVerseOfTheDay } from "@/lib/votd";
+import { BookOpen, Calendar, Bookmark, ArrowRight, Flame, HandHeart, Brain } from "lucide-react";
 
 export default async function HomePage() {
   const session = await auth();
   const userId = session!.user!.id!;
 
-  // Fetch reading progress, active plan, and streak in parallel
-  const [progress, enrollments] = await Promise.all([
+  // Fetch reading progress, active plan, streak, and memory-verse due count in parallel
+  const [progress, enrollments, dueMemoryCount] = await Promise.all([
     db.readingProgress.findUnique({ where: { userId } }),
     db.planEnrollment.findMany({
       where: { userId, completedAt: null },
@@ -22,7 +24,10 @@ export default async function HomePage() {
       orderBy: { startedAt: "desc" },
       take: 2,
     }),
+    db.memoryVerse.count({ where: { userId, nextReview: { lte: new Date() } } }),
   ]);
+
+  const votd = await getVerseOfTheDay(progress?.translation ?? "KJV");
 
   const bookInfo = progress ? getBook(progress.book) : null;
   const firstName = session!.user!.name?.split(" ")[0] ?? "friend";
@@ -42,6 +47,18 @@ export default async function HomePage() {
           })}
         </p>
       </div>
+
+      {/* Verse of the Day */}
+      {votd && (
+        <VerseOfTheDayCard
+          book={votd.book}
+          chapter={votd.chapter}
+          verse={votd.verse}
+          reference={votd.reference}
+          text={votd.text}
+          translation={progress?.translation ?? "KJV"}
+        />
+      )}
 
       {/* Streak widget — client component */}
       <StreakWidget />
@@ -156,6 +173,25 @@ export default async function HomePage() {
           >
             <Flame className="h-5 w-5 text-primary shrink-0" />
             <span className="text-sm font-medium">Open Bible</span>
+          </Link>
+          <Link
+            href="/prayer"
+            className="flex items-center gap-3 rounded-xl border bg-card p-4 hover:bg-muted/50 transition-colors"
+          >
+            <HandHeart className="h-5 w-5 text-primary shrink-0" />
+            <span className="text-sm font-medium">Prayer Journal</span>
+          </Link>
+          <Link
+            href="/memorize"
+            className="flex items-center gap-3 rounded-xl border bg-card p-4 hover:bg-muted/50 transition-colors relative"
+          >
+            <Brain className="h-5 w-5 text-primary shrink-0" />
+            <span className="text-sm font-medium">Memorize</span>
+            {dueMemoryCount > 0 && (
+              <span className="ml-auto shrink-0 inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
+                {dueMemoryCount}
+              </span>
+            )}
           </Link>
         </div>
       </section>

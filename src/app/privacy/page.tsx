@@ -34,8 +34,8 @@ export default function PrivacyPage() {
             <p className="text-muted-foreground leading-relaxed">
               When you create an account, we collect your name, email address, and a hashed version
               of your password. If you sign in with Google, we receive your name, email, and profile
-              image from Google. We also store content you create: highlights, bookmarks, notes, and
-              sermon notes.
+              image from Google. We also store content you create: highlights, bookmarks, notes,
+              sermon notes, and prayer journal entries.
             </p>
           </section>
 
@@ -75,8 +75,8 @@ export default function PrivacyPage() {
             <h2 className="text-lg font-semibold mb-3">5. Your Rights</h2>
             <p className="text-muted-foreground leading-relaxed">
               From your <Link href="/settings" className="underline hover:text-foreground">Settings</Link> page
-              you can export a copy of your data (highlights, bookmarks, notes, sermon notes, reading
-              plans, and preferences) as a JSON file, or permanently delete your account and all
+              you can export a copy of your data (highlights, bookmarks, notes, sermon notes, prayer
+              journal, reading plans, and preferences) as a JSON file, or permanently delete your account and all
               associated data. Account deletion is immediate and cannot be undone. If you need help
               with either, email{" "}
               <a href="mailto:support@parakletos.app" className="underline hover:text-foreground">support@parakletos.app</a>.

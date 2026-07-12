@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { translation, book, chapter, verse, color } = body;
+    const { translation, book, chapter, verse, verseEnd, color } = body;
 
     if (!translation || !book || !chapter || !verse || !color) {
       return NextResponse.json(
@@ -83,6 +83,44 @@ export async function POST(request: Request) {
         { error: `color must be one of: ${validColors.join(", ")}` },
         { status: 400 }
       );
+    }
+
+    // Multi-verse range: fill in any not-yet-highlighted verses in the span
+    // with this color, leaving already-highlighted verses untouched.
+    if (verseEnd && parseInt(String(verseEnd), 10) !== parseInt(String(verse), 10)) {
+      const v1 = parseInt(String(verse), 10);
+      const v2 = parseInt(String(verseEnd), 10);
+      const low = Math.min(v1, v2);
+      const high = Math.max(v1, v2);
+      const translationUpper = translation.toUpperCase();
+      const bookNum = parseInt(String(book), 10);
+      const chapterNum = parseInt(String(chapter), 10);
+
+      const rows = [];
+      for (let v = low; v <= high; v++) {
+        rows.push({
+          userId: session.user.id,
+          translation: translationUpper,
+          book: bookNum,
+          chapter: chapterNum,
+          verse: v,
+          color,
+        });
+      }
+      await db.highlight.createMany({ data: rows, skipDuplicates: true });
+
+      const highlights = await db.highlight.findMany({
+        where: {
+          userId: session.user.id,
+          translation: translationUpper,
+          book: bookNum,
+          chapter: chapterNum,
+          verse: { gte: low, lte: high },
+        },
+        orderBy: { verse: "asc" },
+      });
+
+      return NextResponse.json({ highlights }, { status: 201 });
     }
 
     const highlight = await db.highlight.upsert({
@@ -128,6 +166,7 @@ export async function DELETE(request: Request) {
     const bookParam = searchParams.get("book");
     const chapterParam = searchParams.get("chapter");
     const verseParam = searchParams.get("verse");
+    const verseEndParam = searchParams.get("verseEnd");
 
     if (!translation || !bookParam || !chapterParam || !verseParam) {
       return NextResponse.json(
@@ -139,13 +178,17 @@ export async function DELETE(request: Request) {
     const book = parseInt(bookParam, 10);
     const chapter = parseInt(chapterParam, 10);
     const verse = parseInt(verseParam, 10);
+    const verseEnd = verseEndParam ? parseInt(verseEndParam, 10) : verse;
 
-    if (isNaN(book) || isNaN(chapter) || isNaN(verse)) {
+    if (isNaN(book) || isNaN(chapter) || isNaN(verse) || isNaN(verseEnd)) {
       return NextResponse.json(
         { error: "book, chapter, and verse must be valid numbers" },
         { status: 400 }
       );
     }
+
+    const low = Math.min(verse, verseEnd);
+    const high = Math.max(verse, verseEnd);
 
     await db.highlight.deleteMany({
       where: {
@@ -153,7 +196,7 @@ export async function DELETE(request: Request) {
         translation: translation.toUpperCase(),
         book,
         chapter,
-        verse,
+        verse: { gte: low, lte: high },
       },
     });
 

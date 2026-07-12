@@ -40,6 +40,7 @@ export default function BibleReaderClient({
   isAuthenticated = true,
 }: BibleReaderClientProps) {
   const [selectedVerse, setSelectedVerse] = useState<number | null>(null);
+  const [rangeEnd, setRangeEnd] = useState<number | null>(null);
   const [highlights, setHighlights] = useState<Map<number, { id: string; color: string }>>(
     () => new Map(initialHighlights.map((h) => [h.verse, { id: h.id, color: h.color }]))
   );
@@ -99,12 +100,70 @@ export default function BibleReaderClient({
     });
   }, [translation, book, chapter]);
 
-  const selectedVerseText = selectedVerse
+  const isRangeActive = selectedVerse !== null && rangeEnd !== null && rangeEnd !== selectedVerse;
+  const rangeLow = isRangeActive ? Math.min(selectedVerse!, rangeEnd!) : selectedVerse;
+  const rangeHigh = isRangeActive ? Math.max(selectedVerse!, rangeEnd!) : selectedVerse;
+
+  const selectedVerseText = isRangeActive
+    ? verses
+        .filter((v) => v.verse >= rangeLow! && v.verse <= rangeHigh!)
+        .map((v) => v.text)
+        .join(" ")
+    : selectedVerse
     ? verses.find((v) => v.verse === selectedVerse)?.text ?? ""
     : "";
 
+  function handleVerseClick(verse: number) {
+    if (selectedVerse === null) {
+      setSelectedVerse(verse);
+      setRangeEnd(null);
+    } else if (rangeEnd === null) {
+      if (verse === selectedVerse) {
+        setSelectedVerse(null);
+      } else {
+        setRangeEnd(verse);
+      }
+    } else {
+      setSelectedVerse(verse);
+      setRangeEnd(null);
+    }
+  }
+
   async function handleHighlight(color: HighlightColor | null) {
     if (!selectedVerse) return;
+
+    // Multi-verse range: fill in any not-yet-highlighted verses with this
+    // color via a single bulk request. No "remove" path for ranges — clear
+    // the selection and adjust individual verses if needed.
+    if (isRangeActive && color !== null) {
+      try {
+        const res = await fetch("/api/user/highlights", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            translation,
+            book,
+            chapter,
+            verse: rangeLow,
+            verseEnd: rangeHigh,
+            color,
+          }),
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setHighlights((prev) => {
+          const next = new Map(prev);
+          for (const h of data.highlights as Array<{ verse: number; id: string; color: string }>) {
+            next.set(h.verse, { id: h.id, color: h.color });
+          }
+          return next;
+        });
+      } catch {
+        toast.error("Failed to save highlight");
+      }
+      return;
+    }
+
     const existing = highlights.get(selectedVerse);
 
     if (color === null || (existing && existing.color === color)) {
@@ -254,6 +313,16 @@ export default function BibleReaderClient({
     }
   }
 
+  async function handleMemorize() {
+    if (!selectedVerse) return;
+    const res = await fetch("/api/memory-verses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ translation, book, chapter, verse: selectedVerse }),
+    });
+    if (!res.ok) throw new Error();
+  }
+
   return (
     <div className="flex h-full min-h-0">
       {/* Reader area */}
@@ -325,10 +394,9 @@ export default function BibleReaderClient({
                 bookmarks={bookmarks}
                 notes={notes}
                 selectedVerse={selectedVerse}
+                rangeEnd={rangeEnd}
                 readingVerse={readingVerse}
-                onVerseClick={(verse) =>
-                  setSelectedVerse(verse === selectedVerse ? null : verse)
-                }
+                onVerseClick={handleVerseClick}
               />
             )}
 
@@ -394,25 +462,30 @@ export default function BibleReaderClient({
       {selectedVerse && (
         <VerseActionsBar
           verse={selectedVerse}
+          verseEnd={rangeEnd}
           text={selectedVerseText}
           translation={translation}
           book={book}
           chapter={chapter}
-          currentHighlight={highlights.get(selectedVerse)?.color ?? null}
-          isBookmarked={bookmarks.has(selectedVerse)}
+          currentHighlight={isRangeActive ? null : highlights.get(selectedVerse)?.color ?? null}
+          isBookmarked={!isRangeActive && bookmarks.has(selectedVerse)}
           bookmarkLabel={bookmarkData.get(selectedVerse)?.label ?? null}
-          hasNote={notes.has(selectedVerse)}
+          hasNote={!isRangeActive && notes.has(selectedVerse)}
           note={notes.get(selectedVerse)}
           onHighlight={handleHighlight}
           onBookmark={handleBookmark}
           onBookmarkLabel={handleBookmarkLabel}
           onNote={handleNote}
           onDeleteNote={handleDeleteNote}
+          onMemorize={handleMemorize}
           onStudy={() => {
             setActiveStudyVerse(selectedVerse);
             setStudyPanelOpen(true);
           }}
-          onClose={() => setSelectedVerse(null)}
+          onClose={() => {
+            setSelectedVerse(null);
+            setRangeEnd(null);
+          }}
         />
       )}
     </div>
