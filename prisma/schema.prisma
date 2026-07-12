@@ -31,6 +31,7 @@ model User {
   dailyReadings   DailyReading[]
   sermonNotes     SermonNote[]
   ttsUsage        TtsUsage[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model Account {
@@ -135,7 +136,7 @@ model ReadingProgress {
 model UserSettings {
   id                 String  @id @default(cuid())
   userId             String  @unique
-  fontSize           Int     @default(18)
+  fontSize           Int     @default(100) // percent of base reader size (64-140)
   fontFamily         String  @default("serif")
   lineHeight         Float   @default(1.8)
   theme              String  @default("system")
@@ -143,6 +144,18 @@ model UserSettings {
   parallelTranslation String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model DailyReading {

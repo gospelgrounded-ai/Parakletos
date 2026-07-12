@@ -78,6 +78,18 @@ Go to **Vercel → Project → Settings → Environment Variables** and update `
 3. Add `https://your-app.vercel.app/api/auth/callback/google` as an authorized redirect URI
 4. Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to Vercel env vars
 
+## Optional: Password reset emails (Resend)
+
+Without this, the "forgot password" page honestly tells users to email
+support instead of sending a reset link.
+
+1. Go to https://resend.com → sign up free → **API Keys** → create a key
+2. Add `RESEND_API_KEY` to Vercel env vars
+3. Verify a sending domain (**Domains** in the Resend dashboard) so you can
+   send from `noreply@parakletos.app` — until a domain is verified, Resend
+   will reject the send. If you don't own that domain, edit the `from`
+   address in `src/app/api/auth/forgot-password/route.ts` to one you control.
+
 ## Local dev with PostgreSQL
 
 If you want to use the Neon database locally too:

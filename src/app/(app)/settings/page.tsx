@@ -2,11 +2,23 @@
 
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Check, Save, Download, Trash2 } from "lucide-react";
 import { useTranslations } from "@/hooks/useTranslations";
+import {
+  type ParakletosSettings,
+  type ThemePref,
+  DEFAULT_SETTINGS,
+  MIN_FONT_SIZE,
+  MAX_FONT_SIZE,
+  FONT_SIZE_STEP,
+  loadLocalSettings,
+  saveLocalSettings,
+  fetchDbSettings,
+  pushDbSettings,
+} from "@/lib/settings";
 import {
   Dialog,
   DialogContent,
@@ -18,45 +30,20 @@ import {
 
 const FONT_FAMILIES = [
   { value: "serif", label: "Serif (Georgia)" },
-  { value: "sans-serif", label: "Sans-serif (System)" },
+  { value: "sans", label: "Sans-serif (System)" },
 ] as const;
-type FontFamily = (typeof FONT_FAMILIES)[number]["value"];
 
-const THEMES = [
+const THEMES: Array<{ value: ThemePref; label: string }> = [
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
   { value: "system", label: "System" },
-] as const;
-
-interface Settings {
-  fontSize: number;
-  fontFamily: FontFamily;
-  defaultTranslation: string;
-}
-
-const SETTINGS_KEY = "parakletos-settings";
-
-function loadSettings(): Settings {
-  if (typeof window === "undefined") {
-    return { fontSize: 18, fontFamily: "serif", defaultTranslation: "KJV" };
-  }
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) return JSON.parse(raw) as Settings;
-  } catch {
-    // ignore parse errors
-  }
-  return { fontSize: 18, fontFamily: "serif", defaultTranslation: "KJV" };
-}
+];
 
 export default function SettingsPage() {
-  const { theme, setTheme } = useTheme();
+  const { status } = useSession();
+  const { setTheme } = useTheme();
   const { english: availableTranslations } = useTranslations();
-  const [settings, setSettings] = useState<Settings>({
-    fontSize: 18,
-    fontFamily: "serif",
-    defaultTranslation: "KJV",
-  });
+  const [settings, setSettings] = useState<ParakletosSettings>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -66,10 +53,23 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
-  // Load from localStorage on mount
+  // Load from localStorage immediately, then prefer the DB copy once we
+  // know the user is signed in (cross-device source of truth).
   useEffect(() => {
-    setSettings(loadSettings());
+    setSettings(loadLocalSettings());
   }, []);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    fetchDbSettings().then((db) => {
+      if (db) {
+        setSettings(db);
+        saveLocalSettings(db);
+        setTheme(db.theme);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   useEffect(() => {
     fetch("/api/user/account")
@@ -81,9 +81,15 @@ export default function SettingsPage() {
   }, []);
 
   function handleSave() {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    saveLocalSettings(settings);
+    if (status === "authenticated") pushDbSettings(settings);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  function handleThemeChange(value: ThemePref) {
+    setTheme(value);
+    setSettings((s) => ({ ...s, theme: value }));
   }
 
   async function handleExport() {
@@ -152,15 +158,15 @@ export default function SettingsPage() {
                   Font Size
                 </label>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Current: {settings.fontSize}px
+                  Current: {settings.fontSize}%
                 </p>
               </div>
               <input
                 id="font-size"
                 type="range"
-                min={16}
-                max={24}
-                step={1}
+                min={MIN_FONT_SIZE}
+                max={MAX_FONT_SIZE}
+                step={FONT_SIZE_STEP}
                 value={settings.fontSize}
                 onChange={(e) =>
                   setSettings((s) => ({
@@ -183,7 +189,7 @@ export default function SettingsPage() {
                 onChange={(e) =>
                   setSettings((s) => ({
                     ...s,
-                    fontFamily: e.target.value as FontFamily,
+                    fontFamily: e.target.value as ParakletosSettings["fontFamily"],
                   }))
                 }
                 className={cn(
@@ -242,15 +248,15 @@ export default function SettingsPage() {
               {THEMES.map(({ value, label }) => (
                 <button
                   key={value}
-                  onClick={() => setTheme(value)}
+                  onClick={() => handleThemeChange(value)}
                   className={cn(
                     "flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors",
-                    theme === value
+                    settings.theme === value
                       ? "border-primary bg-primary/10 text-primary"
                       : "hover:bg-muted text-muted-foreground"
                   )}
                 >
-                  {theme === value && <Check className="h-3.5 w-3.5" />}
+                  {settings.theme === value && <Check className="h-3.5 w-3.5" />}
                   {label}
                 </button>
               ))}
@@ -266,8 +272,11 @@ export default function SettingsPage() {
           <div
             className="rounded-xl border p-5 bg-muted/20"
             style={{
-              fontSize: `${settings.fontSize}px`,
-              fontFamily: settings.fontFamily,
+              fontSize: `${(settings.fontSize / 100) * 1.25}rem`,
+              fontFamily:
+                settings.fontFamily === "sans"
+                  ? "system-ui, -apple-system, sans-serif"
+                  : "Georgia, 'Times New Roman', serif",
               lineHeight: 1.8,
             }}
           >

@@ -11,6 +11,7 @@ import {
   X,
   Check,
   Share2,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { HIGHLIGHT_COLORS, type HighlightColor } from "@/types/index";
@@ -26,11 +27,14 @@ interface VerseActionsBarProps {
   chapter: number;
   currentHighlight: string | null;
   isBookmarked: boolean;
+  bookmarkLabel?: string | null;
   hasNote: boolean;
   note?: { id: string; content: string };
   onHighlight: (color: HighlightColor | null) => Promise<void>;
   onBookmark: () => Promise<void>;
+  onBookmarkLabel: (label: string) => Promise<void>;
   onNote: (content: string) => Promise<void>;
+  onDeleteNote: () => Promise<void>;
   onStudy: () => void;
   onClose: () => void;
 }
@@ -43,19 +47,26 @@ export default function VerseActionsBar({
   chapter,
   currentHighlight,
   isBookmarked,
+  bookmarkLabel,
   hasNote,
   note,
   onHighlight,
   onBookmark,
+  onBookmarkLabel,
   onNote,
+  onDeleteNote,
   onStudy,
   onClose,
 }: VerseActionsBarProps) {
   const [showColors, setShowColors] = useState(false);
   const [showNoteEditor, setShowNoteEditor] = useState(false);
+  const [showBookmarkEditor, setShowBookmarkEditor] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [noteContent, setNoteContent] = useState(note?.content ?? "");
   const [isSavingNote, setIsSavingNote] = useState(false);
+  const [isDeletingNote, setIsDeletingNote] = useState(false);
+  const [labelInput, setLabelInput] = useState(bookmarkLabel ?? "");
+  const [isSavingLabel, setIsSavingLabel] = useState(false);
   const [copied, setCopied] = useState(false);
 
   async function handleColorSelect(color: HighlightColor) {
@@ -87,6 +98,32 @@ export default function VerseActionsBar({
     } finally {
       setIsSavingNote(false);
     }
+  }
+
+  async function handleDeleteNote() {
+    setIsDeletingNote(true);
+    try {
+      await onDeleteNote();
+      setShowNoteEditor(false);
+      setNoteContent("");
+    } finally {
+      setIsDeletingNote(false);
+    }
+  }
+
+  async function handleSaveLabel() {
+    setIsSavingLabel(true);
+    try {
+      await onBookmarkLabel(labelInput.trim());
+      setShowBookmarkEditor(false);
+    } finally {
+      setIsSavingLabel(false);
+    }
+  }
+
+  async function handleRemoveBookmark() {
+    await onBookmark();
+    setShowBookmarkEditor(false);
   }
 
   const ref = formatReference(book, chapter, verse);
@@ -131,6 +168,16 @@ export default function VerseActionsBar({
               />
             </div>
             <div className="flex gap-2 p-4 pt-0">
+              {hasNote && (
+                <button
+                  onClick={handleDeleteNote}
+                  disabled={isDeletingNote}
+                  aria-label="Delete note"
+                  className="py-2 px-3 border border-destructive/40 text-destructive rounded-lg text-sm hover:bg-destructive/10 disabled:opacity-50 transition-colors"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
               <button
                 onClick={() => setShowNoteEditor(false)}
                 className="flex-1 py-2 px-4 border rounded-lg text-sm hover:bg-muted transition-colors"
@@ -143,6 +190,55 @@ export default function VerseActionsBar({
                 className="flex-1 py-2 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
               >
                 {isSavingNote ? "Saving..." : "Save Note"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bookmark Editor Overlay */}
+      {showBookmarkEditor && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-card border rounded-xl w-full max-w-lg shadow-xl">
+            <div className="flex items-center justify-between p-4 border-b">
+              <div>
+                <p className="font-medium text-sm">Bookmark on {ref}</p>
+                <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{text}</p>
+              </div>
+              <button
+                onClick={() => setShowBookmarkEditor(false)}
+                className="p-1 rounded-md hover:bg-muted"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-4">
+              <label htmlFor="bookmark-label" className="text-xs text-muted-foreground block mb-1.5">
+                Label (optional)
+              </label>
+              <input
+                id="bookmark-label"
+                type="text"
+                value={labelInput}
+                onChange={(e) => setLabelInput(e.target.value)}
+                placeholder="e.g. Sermon prep, Memory verse..."
+                className="w-full bg-muted/50 border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2 p-4 pt-0">
+              <button
+                onClick={handleRemoveBookmark}
+                className="py-2 px-3 border border-destructive/40 text-destructive rounded-lg text-sm hover:bg-destructive/10 transition-colors"
+              >
+                Remove bookmark
+              </button>
+              <button
+                onClick={handleSaveLabel}
+                disabled={isSavingLabel}
+                className="flex-1 py-2 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {isSavingLabel ? "Saving..." : "Save"}
               </button>
             </div>
           </div>
@@ -207,7 +303,14 @@ export default function VerseActionsBar({
               }
               label={isBookmarked ? "Saved" : "Bookmark"}
               active={isBookmarked}
-              onClick={onBookmark}
+              onClick={() => {
+                if (isBookmarked) {
+                  setLabelInput(bookmarkLabel ?? "");
+                  setShowBookmarkEditor(true);
+                } else {
+                  onBookmark();
+                }
+              }}
             />
             <ActionButton
               icon={<NotebookPen className="h-5 w-5" />}

@@ -1,66 +1,64 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
+import {
+  type ParakletosSettings,
+  type FontFamily,
+  DEFAULT_SETTINGS,
+  MIN_FONT_SIZE,
+  MAX_FONT_SIZE,
+  FONT_SIZE_STEP,
+  loadLocalSettings,
+  saveLocalSettings,
+  fetchDbSettings,
+  pushDbSettings,
+} from "@/lib/settings";
 
-export type FontFamily = "serif" | "sans";
-
+export type { FontFamily };
 export interface ReaderSettings {
   fontSize: number; // rem * 100, e.g. 112 = 1.12rem
   fontFamily: FontFamily;
 }
 
-const STORAGE_KEY = "parakletos-settings";
-const DEFAULTS: ReaderSettings = { fontSize: 100, fontFamily: "serif" };
-const MIN_SIZE = 64;
-const MAX_SIZE = 140;
-const STEP = 8;
-
-function load(): ReaderSettings {
-  if (typeof window === "undefined") return DEFAULTS;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULTS;
-    const parsed = JSON.parse(raw) as Partial<ReaderSettings>;
-    return {
-      fontSize: parsed.fontSize ?? DEFAULTS.fontSize,
-      fontFamily: parsed.fontFamily ?? DEFAULTS.fontFamily,
-    };
-  } catch {
-    return DEFAULTS;
-  }
-}
-
-function save(s: ReaderSettings) {
-  try {
-    const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...existing, ...s }));
-  } catch {
-    // ignore
-  }
-}
-
 export function useReaderSettings() {
-  const [settings, setSettings] = useState<ReaderSettings>(DEFAULTS);
+  const { status } = useSession();
+  const [settings, setSettings] = useState<ParakletosSettings>(DEFAULT_SETTINGS);
+  const hydratedFromDb = useRef(false);
 
-  // Hydrate from localStorage after mount to avoid SSR mismatch
+  // Hydrate from localStorage right after mount (avoids SSR mismatch), then
+  // prefer the DB copy — the cross-device source of truth — once we know
+  // the user is signed in.
   useEffect(() => {
-    setSettings(load());
+    setSettings(loadLocalSettings());
   }, []);
 
-  function update(patch: Partial<ReaderSettings>) {
+  useEffect(() => {
+    if (status !== "authenticated" || hydratedFromDb.current) return;
+    hydratedFromDb.current = true;
+    fetchDbSettings().then((db) => {
+      if (db) {
+        setSettings(db);
+        saveLocalSettings(db);
+      }
+    });
+  }, [status]);
+
+  function update(patch: Partial<ParakletosSettings>) {
     setSettings((prev) => {
       const next = { ...prev, ...patch };
-      save(next);
+      saveLocalSettings(next);
+      if (status === "authenticated") pushDbSettings(next);
       return next;
     });
   }
 
   function increaseFontSize() {
-    update({ fontSize: Math.min(settings.fontSize + STEP, MAX_SIZE) });
+    update({ fontSize: Math.min(settings.fontSize + FONT_SIZE_STEP, MAX_FONT_SIZE) });
   }
 
   function decreaseFontSize() {
-    update({ fontSize: Math.max(settings.fontSize - STEP, MIN_SIZE) });
+    update({ fontSize: Math.max(settings.fontSize - FONT_SIZE_STEP, MIN_FONT_SIZE) });
   }
 
   function setFontFamily(fontFamily: FontFamily) {
@@ -72,7 +70,7 @@ export function useReaderSettings() {
     increaseFontSize,
     decreaseFontSize,
     setFontFamily,
-    canIncrease: settings.fontSize < MAX_SIZE,
-    canDecrease: settings.fontSize > MIN_SIZE,
+    canIncrease: settings.fontSize < MAX_FONT_SIZE,
+    canDecrease: settings.fontSize > MIN_FONT_SIZE,
   };
 }

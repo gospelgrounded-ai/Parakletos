@@ -14,7 +14,7 @@ export async function GET() {
 
   return NextResponse.json(
     settings ?? {
-      fontSize: 18,
+      fontSize: 100,
       fontFamily: "serif",
       lineHeight: 1.8,
       theme: "system",
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     update: { fontSize, fontFamily, lineHeight, theme, defaultTranslation },
     create: {
       userId: session.user.id,
-      fontSize: fontSize ?? 18,
+      fontSize: fontSize ?? 100,
       fontFamily: fontFamily ?? "serif",
       lineHeight: lineHeight ?? 1.8,
       theme: theme ?? "system",

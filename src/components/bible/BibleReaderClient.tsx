@@ -193,6 +193,28 @@ export default function BibleReaderClient({
     }
   }
 
+  async function handleBookmarkLabel(label: string) {
+    if (!selectedVerse) return;
+    try {
+      const res = await fetch("/api/user/bookmarks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ translation, book, chapter, verse: selectedVerse, label }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setBookmarks((prev) => new Set(prev).add(selectedVerse));
+      setBookmarkData((prev) => {
+        const next = new Map(prev);
+        next.set(selectedVerse, { id: data.bookmark.id, label: data.bookmark.label });
+        return next;
+      });
+      toast.success("Bookmark label saved");
+    } catch {
+      toast.error("Failed to save label");
+    }
+  }
+
   async function handleNote(content: string) {
     if (!selectedVerse) return;
     try {
@@ -211,6 +233,24 @@ export default function BibleReaderClient({
       toast.success("Note saved");
     } catch {
       toast.error("Failed to save note");
+    }
+  }
+
+  async function handleDeleteNote() {
+    if (!selectedVerse) return;
+    const existing = notes.get(selectedVerse);
+    if (!existing) return;
+    try {
+      const res = await fetch(`/api/user/notes?id=${existing.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setNotes((prev) => {
+        const next = new Map(prev);
+        next.delete(selectedVerse);
+        return next;
+      });
+      toast.success("Note deleted");
+    } catch {
+      toast.error("Failed to delete note");
     }
   }
 
@@ -360,11 +400,14 @@ export default function BibleReaderClient({
           chapter={chapter}
           currentHighlight={highlights.get(selectedVerse)?.color ?? null}
           isBookmarked={bookmarks.has(selectedVerse)}
+          bookmarkLabel={bookmarkData.get(selectedVerse)?.label ?? null}
           hasNote={notes.has(selectedVerse)}
           note={notes.get(selectedVerse)}
           onHighlight={handleHighlight}
           onBookmark={handleBookmark}
+          onBookmarkLabel={handleBookmarkLabel}
           onNote={handleNote}
+          onDeleteNote={handleDeleteNote}
           onStudy={() => {
             setActiveStudyVerse(selectedVerse);
             setStudyPanelOpen(true);

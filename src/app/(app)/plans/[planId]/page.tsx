@@ -32,6 +32,8 @@ export default function PlanDetailPage({
     `/api/reading-plans/${planId}/progress`,
     fetcher
   );
+  const { data: userSettings } = useSWR("/api/user/settings", fetcher);
+  const translation: string = userSettings?.defaultTranslation || "KJV";
 
   async function markDayComplete(dayNumber: number) {
     try {
@@ -137,7 +139,7 @@ export default function PlanDetailPage({
                 <div className="flex flex-wrap gap-2">
                   {passages.map((p, i) => {
                     const bookInfo = BIBLE_BOOKS.find((b) => b.id === p.book);
-                    const href = `/bible/KJV/${p.book}/${p.chapter}?planId=${planId}&day=${day.dayNumber}&passage=${i}`;
+                    const href = `/bible/${translation}/${p.book}/${p.chapter}?planId=${planId}&day=${day.dayNumber}&passage=${i}`;
                     return (
                       <Link
                         key={i}
@@ -155,7 +157,7 @@ export default function PlanDetailPage({
               {/* "Start reading" CTA for the current day */}
               {isCurrent && !isComplete && firstPassage && (
                 <Link
-                  href={`/bible/KJV/${firstPassage.book}/${firstPassage.chapter}?planId=${planId}&day=${day.dayNumber}&passage=0`}
+                  href={`/bible/${translation}/${firstPassage.book}/${firstPassage.chapter}?planId=${planId}&day=${day.dayNumber}&passage=0`}
                   className="flex-shrink-0 flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-lg transition-colors"
                 >
                   <PlayCircle className="h-3.5 w-3.5" />

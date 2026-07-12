@@ -15,9 +15,19 @@ export default async function BibleIndexPage() {
     });
 
     if (progress) {
+      // A saved reading position always wins verbatim — never mix a
+      // separately-configured default translation with a saved position.
       translation = progress.translation;
       book = progress.book;
       chapter = progress.chapter;
+    } else {
+      const settings = await db.userSettings.findUnique({
+        where: { userId: session.user.id },
+        select: { defaultTranslation: true },
+      });
+      if (settings?.defaultTranslation) {
+        translation = settings.defaultTranslation;
+      }
     }
   }
 

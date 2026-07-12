@@ -65,28 +65,43 @@ export default async function BibleChapterPage({
   if (!verses || verses.length === 0) translationUnavailable = true;
 
   if (translationUnavailable) {
+    // Offer translations we actually have this exact chapter cached for
+    // (survives a Bolls.life outage), falling back to a best guess.
+    const translationUpper = translation.toUpperCase();
+    const cached = await db.chapterCache
+      .findMany({
+        where: { book: bookNum, chapter: chapterNum, translation: { not: translationUpper } },
+        select: { translation: true },
+        distinct: ["translation"],
+        orderBy: { translation: "asc" },
+      })
+      .catch(() => []);
+    const suggestions =
+      cached.length > 0 ? cached.map((c) => c.translation) : ["KJV", "WEB"];
+
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center gap-4">
         <p className="text-4xl">📖</p>
         <h1 className="text-xl font-semibold">Translation unavailable</h1>
         <p className="text-muted-foreground max-w-sm text-sm">
-          <strong>{translation.toUpperCase()}</strong> could not be loaded for{" "}
+          <strong>{translationUpper}</strong> could not be loaded for{" "}
           {bookInfo.name} {chapterNum}. It may be temporarily unavailable on
           Bolls.life, or the translation code may have changed.
         </p>
-        <div className="flex gap-3 mt-2">
-          <Link
-            href={`/bible/KJV/${bookNum}/${chapterNum}`}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            Read in KJV
-          </Link>
-          <Link
-            href={`/bible/WEB/${bookNum}/${chapterNum}`}
-            className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted"
-          >
-            Read in WEB
-          </Link>
+        <div className="flex gap-3 mt-2 flex-wrap justify-center">
+          {suggestions.slice(0, 4).map((t, i) => (
+            <Link
+              key={t}
+              href={`/bible/${t}/${bookNum}/${chapterNum}`}
+              className={
+                i === 0
+                  ? "rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                  : "rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted"
+              }
+            >
+              Read in {t}
+            </Link>
+          ))}
         </div>
       </div>
     );
