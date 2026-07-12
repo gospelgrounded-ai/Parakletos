@@ -154,3 +154,10 @@
     }
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .verse-flash,
+  .animate-fade-in {
+    animation: none !important;
+  }
+}

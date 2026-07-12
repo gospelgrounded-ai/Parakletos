@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -207,6 +207,32 @@ function ChapterNavInner({
 
   const prevDisabled = inPlanMode ? !prevEntry : book === 1 && chapter === 1;
   const nextDisabled = !inPlanMode && book === 66 && chapter === totalChapters;
+
+  // Keyboard chapter paging (←/→). Uses a "latest ref" so the listener
+  // never needs to be re-registered while still calling the current
+  // navigatePrev/navigateNext closures.
+  const navigatePrevRef = useRef(navigatePrev);
+  const navigateNextRef = useRef(navigateNext);
+  navigatePrevRef.current = navigatePrev;
+  navigateNextRef.current = navigateNext;
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (selectorOpen) return;
+      const target = e.target as HTMLElement;
+      const tag = target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable) return;
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        navigatePrevRef.current();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        navigateNextRef.current();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectorOpen]);
 
   function prevLabel() {
     if (inPlanMode && prevEntry) {

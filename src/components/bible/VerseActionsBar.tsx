@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import { HIGHLIGHT_COLORS, type HighlightColor } from "@/types/index";
 import { formatReference } from "@/lib/bible-books";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { cn } from "@/lib/utils";
 import ShareVerseModal from "./ShareVerseModal";
 
@@ -82,6 +83,26 @@ export default function VerseActionsBar({
   useEffect(() => {
     setMemorized(false);
   }, [verse, verseEnd]);
+
+  // Escape closes whichever overlay is topmost, or the whole bar if none
+  // are open. When the share modal is open it handles its own Escape —
+  // no-op here so this handler doesn't also close the bar underneath it.
+  useEscapeKey(() => {
+    if (showShareModal) return;
+    if (showNoteEditor) {
+      setShowNoteEditor(false);
+      return;
+    }
+    if (showBookmarkEditor) {
+      setShowBookmarkEditor(false);
+      return;
+    }
+    if (showColors) {
+      setShowColors(false);
+      return;
+    }
+    onClose();
+  });
 
   async function handleColorSelect(color: HighlightColor) {
     if (color === currentHighlight) {

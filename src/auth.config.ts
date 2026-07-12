@@ -26,6 +26,16 @@ export const authConfig: NextAuthConfig = {
         return true;
       }
 
+      // Always public — PWA assets (fetched by the browser before any login)
+      if (
+        pathname === "/sw.js" ||
+        pathname === "/manifest.webmanifest" ||
+        pathname === "/pwa-icon-192" ||
+        pathname === "/pwa-icon-512"
+      ) {
+        return true;
+      }
+
       // Always public — Bible reading (any specific chapter)
       // /bible/<translation>/<book>/<chapter>
       if (/^\/bible\/[^/]+\/\d+\/\d+/.test(pathname)) return true;

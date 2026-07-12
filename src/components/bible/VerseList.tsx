@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { getBook } from "@/lib/bible-books";
 import { getSectionHeading, isParagraphStart, stripParagraphMark } from "@/lib/bible-structure";
 import { BibleVerse } from "@/types";
@@ -71,6 +72,41 @@ export default function VerseList({
 
   const rangeLow = selectedVerse !== null && rangeEnd != null ? Math.min(selectedVerse, rangeEnd) : null;
   const rangeHigh = selectedVerse !== null && rangeEnd != null ? Math.max(selectedVerse, rangeEnd) : null;
+
+  // Keyboard verse-to-verse focus (↓/j moves to the next verse, ↑/k to the
+  // previous). Only active when a verse — or nothing in particular — has
+  // focus, so it doesn't hijack keystrokes meant for other controls.
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const key = e.key;
+      if (key !== "ArrowDown" && key !== "ArrowUp" && key !== "j" && key !== "k") return;
+
+      const target = e.target as HTMLElement;
+      const tag = target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable) return;
+
+      const activeId = document.activeElement?.id;
+      const activeVerse = activeId?.startsWith("v") ? Number(activeId.slice(1)) : null;
+      if (activeVerse === null && document.activeElement !== document.body) return;
+
+      const verseNumbers = verses.map((v) => v.verse);
+      const idx = activeVerse !== null ? verseNumbers.indexOf(activeVerse) : -1;
+      let nextFocusVerse: number | null = null;
+
+      if (key === "ArrowDown" || key === "j") {
+        nextFocusVerse = idx >= 0 && idx < verseNumbers.length - 1 ? verseNumbers[idx + 1] : verseNumbers[0] ?? null;
+      } else {
+        nextFocusVerse = idx > 0 ? verseNumbers[idx - 1] : null;
+      }
+
+      if (nextFocusVerse !== null) {
+        e.preventDefault();
+        document.getElementById(`v${nextFocusVerse}`)?.focus();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [verses]);
 
   return (
     <article>

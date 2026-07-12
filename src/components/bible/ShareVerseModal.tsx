@@ -4,6 +4,7 @@ import { useState } from "react";
 import { X, Download, Share2, Copy, Check, Moon, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { formatReference } from "@/lib/bible-books";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { cn } from "@/lib/utils";
 
 interface ShareVerseModalProps {
@@ -128,6 +129,8 @@ export default function ShareVerseModal({
   const [isDark, setIsDark] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [textCopied, setTextCopied] = useState(false);
+
+  useEscapeKey(onClose);
 
   const ref = formatReference(book, chapter, verse, verseEnd);
   const shareText = `"${text}" — ${ref} (${translation})`;

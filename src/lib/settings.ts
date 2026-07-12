@@ -50,7 +50,7 @@ interface UnknownShape {
  * well above the px range, so `fontSize <= 24` reliably identifies the
  * legacy px shape.
  */
-function migrate(raw: UnknownShape): ParakletosSettings {
+export function migrate(raw: UnknownShape): ParakletosSettings {
   const isLegacyPx = typeof raw.fontSize === "number" && raw.fontSize <= 24;
   const fontSize = isLegacyPx
     ? clamp(Math.round(((raw.fontSize as number) / 18) * 100), MIN_FONT_SIZE, MAX_FONT_SIZE)

@@ -134,6 +134,7 @@ export default function SearchInterface() {
   const [translation, setTranslation] = useState(initialT);
   const [testament, setTestament] = useState<Testament>("all");
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [truncated, setTruncated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -150,6 +151,7 @@ export default function SearchInterface() {
   const performSearch = useCallback(async (q: string, t: string) => {
     if (!q.trim()) {
       setResults([]);
+      setTruncated(false);
       setHasSearched(false);
       return;
     }
@@ -162,8 +164,10 @@ export default function SearchInterface() {
       if (!res.ok) throw new Error("Search failed");
       const data = await res.json();
       setResults(Array.isArray(data.results) ? data.results : []);
+      setTruncated(!!data.truncated);
     } catch {
       setResults([]);
+      setTruncated(false);
     } finally {
       setIsLoading(false);
     }
@@ -286,7 +290,7 @@ export default function SearchInterface() {
             <p className="text-sm text-muted-foreground">
               <span className="font-semibold text-foreground">{results.length}</span>{" "}
               result{results.length !== 1 ? "s" : ""} for{" "}
-              <span className="italic">"{query.trim()}"</span>
+              <span className="italic">&ldquo;{query.trim()}&rdquo;</span>
             </p>
 
             {/* Testament filter */}
@@ -339,9 +343,10 @@ export default function SearchInterface() {
             })}
           </ul>
 
-          {results.length === 50 && (
+          {truncated && (
             <p className="text-xs text-center text-muted-foreground pt-2">
-              Showing top 50 results. Refine your query for more specific results.
+              Showing the top 50 results — there are more matches. Refine your query to narrow
+              them down.
             </p>
           )}
         </div>
@@ -350,7 +355,7 @@ export default function SearchInterface() {
           <Search className="h-10 w-10 mx-auto mb-3 opacity-20" />
           <p className="text-sm">Start typing to search across Scripture.</p>
           <p className="text-xs mt-1 opacity-70">
-            Try "love" or jump to a passage like "John 3:16"
+            Try &ldquo;love&rdquo; or jump to a passage like &ldquo;John 3:16&rdquo;
           </p>
         </div>
       ) : null}

@@ -31,7 +31,11 @@ export async function GET(request: Request) {
       bookName: BOOK_NAME_MAP.get(result.book) ?? `Book ${result.book}`,
     }));
 
-    return NextResponse.json({ results, query: query.trim() });
+    return NextResponse.json({
+      results,
+      query: query.trim(),
+      truncated: rawResults.length > 50,
+    });
   } catch (error) {
     console.error("[BIBLE_SEARCH]", error);
     return NextResponse.json(

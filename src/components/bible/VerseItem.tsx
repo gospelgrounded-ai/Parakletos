@@ -30,13 +30,24 @@ export default function VerseItem({
   return (
     <span
       id={`v${verse}`}
+      role="button"
+      tabIndex={0}
+      aria-pressed={isSelected}
+      aria-label={`Verse ${verse}`}
       className={cn(
         "group relative inline cursor-pointer rounded-sm transition-colors duration-150",
         "hover:bg-primary/5",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/60",
         isReading && "bg-amber-400/15 outline outline-1 outline-amber-400/40 rounded",
         isSelected && "bg-primary/10 outline outline-1 outline-primary/20 rounded",
       )}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
     >
       {/* Verse number */}
       <sup className="bible-verse-num select-none mr-0.5">{verse}</sup>

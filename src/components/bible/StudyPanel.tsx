@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { X, BookOpen, GitBranch, Scroll } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatReference } from "@/lib/bible-books";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
 import useSWR from "swr";
 import Link from "next/link";
 
@@ -43,6 +44,8 @@ interface StudyPanelProps {
 type Tab = "cross-refs" | "commentary" | "word-study";
 
 export default function StudyPanel(props: StudyPanelProps) {
+  useEscapeKey(props.onClose);
+
   return (
     <>
       {/* Desktop: docked sidebar */}

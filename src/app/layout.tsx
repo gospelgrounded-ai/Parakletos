@@ -1,7 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Lora } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { SessionProvider } from "@/components/providers/SessionProvider";
+import ServiceWorkerRegister from "@/components/pwa/ServiceWorkerRegister";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -25,6 +27,11 @@ export const metadata: Metadata = {
   description:
     "A powerful, beautiful Bible study app with multiple translations, highlights, notes, and deep study tools.",
   keywords: ["Bible", "Bible study", "scripture", "devotional", "commentary"],
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Parakletos" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#4051b5",
 };
 
 export default function RootLayout({
@@ -44,6 +51,8 @@ export default function RootLayout({
           <SessionProvider>
             {children}
             <Toaster richColors position="top-center" />
+            <ServiceWorkerRegister />
+            <Analytics />
           </SessionProvider>
         </ThemeProvider>
       </body>
