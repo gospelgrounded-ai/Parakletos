@@ -483,7 +483,13 @@ export default function AudioPlayer({
   const showBrowserVoices = ttsMode === "browser" && browserVoices.length > 1;
 
   return (
-    <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 z-30 border-t bg-card/95 backdrop-blur-sm shadow-lg md:left-16 lg:left-[220px]">
+    <div
+      className="fixed right-0 z-30 border-t bg-card/95 backdrop-blur-sm shadow-lg"
+      style={{
+        left: "var(--shell-left, 0px)",
+        bottom: "var(--shell-bottom, 0px)",
+      }}
+    >
       <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
         {/* Status icon */}
         <Volume2

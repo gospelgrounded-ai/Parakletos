@@ -293,7 +293,10 @@ export default function VerseActionsBar({
       )}
 
       {/* Actions Bar */}
-      <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 z-40 flex justify-center px-4 pb-3 pointer-events-none">
+      <div
+        className="fixed left-0 right-0 z-40 flex justify-center px-4 pb-3 pointer-events-none"
+        style={{ bottom: "var(--shell-bottom, 0px)" }}
+      >
         <div className="bg-card border rounded-2xl shadow-xl pointer-events-auto w-full max-w-lg animate-fade-in">
           {/* Verse reference */}
           <div className="px-4 pt-3 pb-2 border-b">

@@ -12,6 +12,8 @@ import {
   LogOut,
   House,
   NotebookPen,
+  HandHeart,
+  Brain,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -30,6 +32,8 @@ const NAV_LINKS = [
   { href: "/search", icon: Search, label: "Search" },
   { href: "/plans", icon: Calendar, label: "Plans" },
   { href: "/library", icon: Bookmark, label: "Library" },
+  { href: "/prayer", icon: HandHeart, label: "Prayer" },
+  { href: "/memorize", icon: Brain, label: "Memorize" },
   { href: "/sermon-notes", icon: NotebookPen, label: "Notes" },
   { href: "/settings", icon: Settings, label: "Settings" },
 ] as const;
@@ -49,11 +53,11 @@ export default function AppSidebar() {
   const { data: session } = useSession();
 
   return (
-    <aside className="hidden md:flex flex-col fixed left-0 top-0 h-screen w-16 lg:w-[220px] border-r bg-card z-40 transition-all duration-200">
+    <aside className="hidden lg:flex flex-col fixed left-0 top-0 h-screen w-[220px] border-r bg-card z-40">
       {/* Logo */}
-      <div className="flex items-center gap-3 px-3 lg:px-4 h-16 border-b">
+      <div className="flex items-center gap-3 px-4 h-16 border-b">
         <BookOpen className="h-6 w-6 text-primary flex-shrink-0" />
-        <span className="hidden lg:block font-semibold text-lg tracking-tight truncate">
+        <span className="font-semibold text-lg tracking-tight truncate">
           Parakletos
         </span>
       </div>
@@ -76,7 +80,7 @@ export default function AppSidebar() {
               )}
             >
               <Icon className="h-5 w-5 flex-shrink-0" />
-              <span className="hidden lg:block">{label}</span>
+              <span>{label}</span>
             </Link>
           );
         })}
@@ -96,7 +100,7 @@ export default function AppSidebar() {
                   {getInitials(session?.user?.name)}
                 </AvatarFallback>
               </Avatar>
-              <div className="hidden lg:flex flex-col min-w-0">
+              <div className="flex flex-col min-w-0">
                 <span className="text-sm font-medium truncate">
                   {session?.user?.name ?? "User"}
                 </span>

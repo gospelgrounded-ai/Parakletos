@@ -100,6 +100,24 @@
     user-select: none;
   }
 
+  /* Shell-published layout offsets. Fixed-position bars (audio player,
+     verse actions) read these so they clear whichever chrome — sidebar,
+     bottom nav, or none — the current layout actually renders. */
+  .app-shell {
+    --shell-left: 0px;
+    --shell-bottom: 4rem; /* mobile bottom nav height */
+  }
+  @media (min-width: 1024px) {
+    .app-shell {
+      --shell-left: 220px; /* desktop sidebar width */
+      --shell-bottom: 0px;
+    }
+  }
+  .guest-shell {
+    --shell-left: 0px;
+    --shell-bottom: 0px;
+  }
+
   /* Scrollbar styling */
   ::-webkit-scrollbar {
     width: 6px;
