@@ -158,7 +158,7 @@ export default function PrayerEntryEditor({ entry }: Props) {
           className={cn(
             "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
             isAnswered
-              ? "border-green-500/40 bg-green-500/10 text-green-600 dark:text-green-400"
+              ? "border-success/40 bg-success/10 text-success"
               : "hover:bg-muted text-muted-foreground"
           )}
         >

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Share2, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import ShareVerseModal from "@/components/bible/ShareVerseModal";
 
 interface VerseOfTheDayCardProps {
@@ -39,13 +40,15 @@ export default function VerseOfTheDayCard({
           >
             {reference} — Read in context
           </Link>
-          <button
+          <Button
             onClick={() => setShowShare(true)}
             aria-label="Share verse"
-            className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
+            variant="ghost"
+            size="icon"
+            className="shrink-0 text-muted-foreground"
           >
             <Share2 className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
       </div>
 

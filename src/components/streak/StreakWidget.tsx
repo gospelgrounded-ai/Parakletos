@@ -69,7 +69,7 @@ export default function StreakWidget() {
 
   if (!data) {
     return (
-      <div className="rounded-2xl border bg-card p-5 space-y-4 animate-pulse">
+      <div className="rounded-xl border bg-card p-5 space-y-4 animate-pulse">
         <div className="h-14 bg-muted rounded-xl" />
         <div className="h-28 bg-muted rounded-xl" />
       </div>
@@ -81,7 +81,7 @@ export default function StreakWidget() {
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <div className="rounded-2xl border bg-card overflow-hidden">
+    <div className="rounded-xl border bg-card overflow-hidden">
       {/* Streak hero */}
       <div
         className={cn(

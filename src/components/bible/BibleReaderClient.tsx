@@ -346,8 +346,8 @@ export default function BibleReaderClient({
             background: "hsl(var(--reader-bg))",
             "--reader-font-family":
               settings.fontFamily === "sans"
-                ? "system-ui, -apple-system, sans-serif"
-                : "Georgia, 'Times New Roman', serif",
+                ? "var(--font-sans), system-ui, sans-serif"
+                : "var(--font-serif), Georgia, serif",
             "--reader-font-size": `${(settings.fontSize / 100) * 1.25}rem`,
           } as React.CSSProperties}
         >

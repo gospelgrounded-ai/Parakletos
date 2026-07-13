@@ -20,6 +20,8 @@
     --accent-foreground: 220.9 39.3% 11%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 20% 98%;
+    --success: 142 72% 29%;
+    --success-foreground: 210 20% 98%;
     --border: 220 13% 91%;
     --input: 220 13% 91%;
     --ring: 231 48% 48%;
@@ -48,6 +50,8 @@
     --accent-foreground: 210 20% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 20% 98%;
+    --success: 142 60% 50%;
+    --success-foreground: 220.9 39.3% 11%;
     --border: 215 27.9% 16.9%;
     --input: 215 27.9% 16.9%;
     --ring: 231 60% 65%;
@@ -61,6 +65,14 @@
     @apply border-border;
   }
 
+  /* Keyboard-focus fallback for every interactive element that doesn't
+     author its own ring. Components using focus-visible:ring set
+     outline-none themselves, so there's no doubling. */
+  *:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
@@ -68,7 +80,7 @@
 
   /* Bible reader text styles */
   .bible-text {
-    font-family: var(--reader-font-family, Georgia, 'Times New Roman', serif);
+    font-family: var(--reader-font-family, var(--font-serif), Georgia, serif);
     font-size: var(--reader-font-size, 1.25rem);
     color: hsl(var(--reader-text));
     line-height: 1.9;
@@ -174,6 +186,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
   .verse-flash,
   .animate-fade-in {
     animation: none !important;

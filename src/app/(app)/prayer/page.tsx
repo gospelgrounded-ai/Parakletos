@@ -6,7 +6,8 @@ import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { HandHeart, CheckCircle2, Plus } from "lucide-react";
+import EmptyState from "@/components/shared/EmptyState";
+import { HandHeart, CheckCircle2, Plus, type LucideIcon } from "lucide-react";
 
 interface PrayerEntry {
   id: string;
@@ -34,21 +35,18 @@ function formatDate(dateStr: string) {
 function EntryList({
   entries,
   emptyIcon,
-  emptyMessage,
+  emptyTitle,
+  emptyHint,
   onSelect,
 }: {
   entries: PrayerEntry[];
-  emptyIcon: React.ReactNode;
-  emptyMessage: string;
+  emptyIcon: LucideIcon;
+  emptyTitle: string;
+  emptyHint?: string;
   onSelect: (id: string) => void;
 }) {
   if (entries.length === 0) {
-    return (
-      <div className="text-center py-16 text-muted-foreground">
-        <div className="mx-auto mb-3 opacity-20 w-fit">{emptyIcon}</div>
-        <p className="text-sm">{emptyMessage}</p>
-      </div>
-    );
+    return <EmptyState icon={emptyIcon} title={emptyTitle} hint={emptyHint} />;
   }
 
   return (
@@ -137,16 +135,17 @@ export default function PrayerJournalPage() {
           <TabsContent value="open">
             <EntryList
               entries={open}
-              emptyIcon={<HandHeart className="h-10 w-10" />}
-              emptyMessage="No open prayers yet. Add one to start your journal."
+              emptyIcon={HandHeart}
+              emptyTitle="No open prayers yet"
+              emptyHint="Add one to start your journal."
               onSelect={(id) => router.push(`/prayer/${id}`)}
             />
           </TabsContent>
           <TabsContent value="answered">
             <EntryList
               entries={answered}
-              emptyIcon={<CheckCircle2 className="h-10 w-10" />}
-              emptyMessage="No answered prayers marked yet."
+              emptyIcon={CheckCircle2}
+              emptyTitle="No answered prayers marked yet"
               onSelect={(id) => router.push(`/prayer/${id}`)}
             />
           </TabsContent>

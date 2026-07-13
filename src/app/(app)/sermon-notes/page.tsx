@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import EmptyState from "@/components/shared/EmptyState";
 import { MapPin, NotebookPen, Plus, User } from "lucide-react";
 
 interface SermonNote {
@@ -80,11 +81,11 @@ export default function SermonNotesPage() {
       )}
 
       {!isLoading && (!notes || notes.length === 0) && (
-        <div className="text-center py-16 text-muted-foreground">
-          <NotebookPen className="h-12 w-12 mx-auto mb-3 opacity-20" />
-          <p className="text-sm">No sermon notes yet.</p>
-          <p className="text-xs mt-1 opacity-70">Create your first note to get started.</p>
-        </div>
+        <EmptyState
+          icon={NotebookPen}
+          title="No sermon notes yet"
+          hint="Create your first note to get started."
+        />
       )}
 
       {!isLoading && notes && notes.length > 0 && (

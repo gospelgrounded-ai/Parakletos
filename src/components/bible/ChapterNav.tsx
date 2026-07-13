@@ -478,7 +478,10 @@ function ChapterNavInner({
                               : "border-border text-muted-foreground hover:border-foreground/40"
                           )}
                           style={{
-                            fontFamily: f === "serif" ? "Georgia, serif" : "system-ui, sans-serif",
+                            fontFamily:
+                              f === "serif"
+                                ? "var(--font-serif), Georgia, serif"
+                                : "var(--font-sans), system-ui, sans-serif",
                           }}
                         >
                           {f === "serif" ? "Serif" : "Sans"}

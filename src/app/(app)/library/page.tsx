@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import EmptyState from "@/components/shared/EmptyState";
 import { cn } from "@/lib/utils";
-import { HighlightColor, HIGHLIGHT_COLORS } from "@/types";
+import { HighlightColor, getHighlightClass } from "@/types";
 import Link from "next/link";
 import { Bookmark, FileText, Search, Highlighter, NotebookPen, ArrowRight } from "lucide-react";
 
@@ -50,7 +51,7 @@ const fetcher = (url: string) =>
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function colorDot(color: HighlightColor) {
-  const bg = HIGHLIGHT_COLORS.find((c) => c.color === color)?.bg ?? "bg-gray-200";
+  const bg = getHighlightClass(color) || "bg-muted";
   return <span className={cn("inline-block w-3 h-3 rounded-full shrink-0", bg)} />;
 }
 
@@ -80,15 +81,6 @@ function ListSkeleton() {
   );
 }
 
-function EmptyState({ icon, message }: { icon: React.ReactNode; message: string }) {
-  return (
-    <div className="text-center py-16 text-muted-foreground">
-      <div className="mx-auto mb-3 opacity-20 w-fit">{icon}</div>
-      <p className="text-sm">{message}</p>
-    </div>
-  );
-}
-
 function BookGroup({
   bookName,
   count,
@@ -104,7 +96,7 @@ function BookGroup({
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           {bookName}
         </h3>
-        <span className="text-xs text-muted-foreground/60">{count}</span>
+        <span className="text-xs text-muted-foreground">{count}</span>
       </div>
       <ul className="space-y-2">{children}</ul>
     </div>
@@ -128,13 +120,14 @@ function HighlightsTab({ data, query }: { data: HighlightEntry[]; query: string 
   if (data.length === 0) {
     return (
       <EmptyState
-        icon={<Highlighter className="h-10 w-10" />}
-        message="No highlights yet. Highlight a verse while reading to save it here."
+        icon={Highlighter}
+        title="No highlights yet"
+        hint="Highlight a verse while reading to save it here."
       />
     );
   }
   if (filtered.length === 0) {
-    return <EmptyState icon={<Search className="h-10 w-10" />} message="No matches." />;
+    return <EmptyState icon={Search} title="No matches" />;
   }
 
   return (
@@ -184,13 +177,14 @@ function BookmarksTab({ data, query }: { data: BookmarkEntry[]; query: string })
   if (data.length === 0) {
     return (
       <EmptyState
-        icon={<Bookmark className="h-10 w-10" />}
-        message="No bookmarks yet. Bookmark a verse while reading to save it here."
+        icon={Bookmark}
+        title="No bookmarks yet"
+        hint="Bookmark a verse while reading to save it here."
       />
     );
   }
   if (filtered.length === 0) {
-    return <EmptyState icon={<Search className="h-10 w-10" />} message="No matches." />;
+    return <EmptyState icon={Search} title="No matches" />;
   }
 
   return (
@@ -243,13 +237,14 @@ function NotesTab({ data, query }: { data: NoteEntry[]; query: string }) {
   if (data.length === 0) {
     return (
       <EmptyState
-        icon={<FileText className="h-10 w-10" />}
-        message="No notes yet. Add a note to a verse while reading to save it here."
+        icon={FileText}
+        title="No notes yet"
+        hint="Add a note to a verse while reading to save it here."
       />
     );
   }
   if (filtered.length === 0) {
-    return <EmptyState icon={<Search className="h-10 w-10" />} message="No matches." />;
+    return <EmptyState icon={Search} title="No matches" />;
   }
 
   return (
@@ -270,7 +265,7 @@ function NotesTab({ data, query }: { data: NoteEntry[]; query: string }) {
                   <span className="text-xs text-muted-foreground">{n.translation}</span>
                 </div>
                 {n.text && (
-                  <p className="text-xs text-muted-foreground/70 font-serif italic line-clamp-1 ml-6 mb-1">
+                  <p className="text-xs text-muted-foreground font-serif italic line-clamp-1 ml-6 mb-1">
                     {n.text}
                   </p>
                 )}

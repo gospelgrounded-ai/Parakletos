@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import EmptyState from "@/components/shared/EmptyState";
 import { formatReference } from "@/lib/bible-books";
 import { maskVerseText, type MaskMode } from "@/lib/memory-mask";
 import { Brain, Check, Eye, EyeOff, X, ChevronLeft } from "lucide-react";
@@ -94,23 +96,27 @@ export default function MemorizePage() {
 
   if (allVerses === null) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-12 text-center text-muted-foreground text-sm">
-        Loading…
+      <div className="max-w-lg mx-auto px-4 py-12 space-y-4">
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-36 w-full rounded-xl" />
       </div>
     );
   }
 
   if (allVerses.length === 0) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-16 text-center">
-        <Brain className="h-10 w-10 mx-auto mb-4 text-muted-foreground opacity-40" />
-        <h1 className="text-xl font-semibold mb-2">Nothing to memorize yet</h1>
-        <p className="text-sm text-muted-foreground mb-6">
-          While reading, tap a verse and choose &ldquo;Memorize&rdquo; to add it here.
-        </p>
-        <Link href="/bible" className="text-sm text-primary font-medium hover:underline">
-          Go to the Bible reader
-        </Link>
+      <div className="max-w-lg mx-auto px-4">
+        <EmptyState
+          icon={Brain}
+          title="Nothing to memorize yet"
+          hint='While reading, tap a verse and choose "Memorize" to add it here.'
+          action={
+            <Link href="/bible" className="text-sm text-primary font-medium hover:underline">
+              Go to the Bible reader
+            </Link>
+          }
+        />
       </div>
     );
   }

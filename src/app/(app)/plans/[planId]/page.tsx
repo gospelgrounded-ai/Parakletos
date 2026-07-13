@@ -4,6 +4,7 @@ import { use, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { BIBLE_BOOKS } from "@/lib/bible-books";
+import ProgressBar from "@/components/shared/ProgressBar";
 import { CheckCircle2, Circle, BookOpen, ArrowLeft, PlayCircle, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { getReflectionPrompt } from "@/lib/reflection-prompts";
@@ -77,23 +78,23 @@ export default function PlanDetailPage({
         Reading Plans
       </Link>
 
-      {/* Plan header */}
-      <div
-        className="rounded-xl p-6 text-white mb-6"
-        style={{ backgroundColor: plan.coverColor ?? "#4F46E5" }}
-      >
-        <h1 className="font-serif text-2xl font-bold mb-1">{plan.title}</h1>
-        <p className="text-white/80 text-sm">{plan.description}</p>
-        <div className="mt-4">
-          <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-white rounded-full transition-all"
-              style={{ width: `${(completedDays.size / plan.totalDays) * 100}%` }}
+      {/* Plan header — accent strip, never text on the raw cover color */}
+      <div className="rounded-xl border bg-card overflow-hidden mb-6">
+        <div
+          className="h-2"
+          style={{ backgroundColor: plan.coverColor ?? "#4F46E5" }}
+        />
+        <div className="p-6">
+          <h1 className="font-serif text-2xl font-bold mb-1">{plan.title}</h1>
+          <p className="text-muted-foreground text-sm">{plan.description}</p>
+          <div className="mt-4">
+            <ProgressBar
+              value={(completedDays.size / plan.totalDays) * 100}
             />
+            <p className="text-muted-foreground text-xs mt-1">
+              {completedDays.size} of {plan.totalDays} days complete
+            </p>
           </div>
-          <p className="text-white/80 text-xs mt-1">
-            {completedDays.size} of {plan.totalDays} days complete
-          </p>
         </div>
       </div>
 
@@ -122,7 +123,7 @@ export default function PlanDetailPage({
                 aria-label={isComplete ? `Day ${day.dayNumber} complete` : `Mark day ${day.dayNumber} complete`}
               >
                 {isComplete ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  <CheckCircle2 className="h-5 w-5 text-success" />
                 ) : (
                   <Circle className="h-5 w-5 text-muted-foreground hover:text-primary" />
                 )}
