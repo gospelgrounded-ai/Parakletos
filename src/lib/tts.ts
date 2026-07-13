@@ -51,7 +51,7 @@ export async function getVoiceCatalog(): Promise<VoiceCatalog> {
             voices.find((v) => v.name === "Antoni")?.id ??
             voices[0].id;
           const result: VoiceCatalog = { service: "elevenlabs", voices, defaultVoice };
-          cached = { data: result, expiresAt: Date.now() + 10 * 60 * 1000 };
+          cached = { data: result, expiresAt: Date.now() + 60 * 60 * 1000 };
           return result;
         }
       }
@@ -62,7 +62,7 @@ export async function getVoiceCatalog(): Promise<VoiceCatalog> {
 
   if (openaiKey) {
     const result: VoiceCatalog = { service: "openai", voices: OPENAI_VOICES, defaultVoice: "onyx" };
-    cached = { data: result, expiresAt: Date.now() + 10 * 60 * 1000 };
+    cached = { data: result, expiresAt: Date.now() + 60 * 60 * 1000 };
     return result;
   }
 

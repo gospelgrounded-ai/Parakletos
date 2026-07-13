@@ -18,6 +18,10 @@ interface VoiceOption {
   name: string;
 }
 
+type VerseAudioResult =
+  | { ok: true; blobUrl: string }
+  | { ok: false; status: number };
+
 const browserSupported =
   typeof window !== "undefined" && "speechSynthesis" in window;
 
@@ -78,6 +82,12 @@ export default function AudioPlayer({
   // "Latest play function" ref — lets onended/onend call the current version
   // without capturing a stale closure.
   const playVerseRef = useRef<(idx: number) => void>(() => {});
+
+  // Next-verse prefetch — fetched in the background while the current verse
+  // plays, so the next one is usually ready instantly instead of showing a
+  // "Loading…" gap at every verse boundary.
+  const prefetchCacheRef = useRef<Map<number, Promise<VerseAudioResult>>>(new Map());
+  const prefetchAbortRef = useRef<Map<number, AbortController>>(new Map());
 
   // ─── Fetch API voices on mount ────────────────────────────────────────────
 
@@ -159,6 +169,21 @@ export default function AudioPlayer({
 
   // ─── Stop helpers ─────────────────────────────────────────────────────────
 
+  function clearPrefetchCache(exceptIdx?: number) {
+    for (const [idx, controller] of prefetchAbortRef.current) {
+      if (idx === exceptIdx) continue;
+      controller.abort();
+      prefetchAbortRef.current.delete(idx);
+    }
+    for (const [idx, promise] of prefetchCacheRef.current) {
+      if (idx === exceptIdx) continue;
+      promise.then((r) => {
+        if (r.ok) URL.revokeObjectURL(r.blobUrl);
+      }).catch(() => {});
+      prefetchCacheRef.current.delete(idx);
+    }
+  }
+
   function stopAll() {
     if (audioElRef.current) {
       audioElRef.current.pause();
@@ -173,12 +198,51 @@ export default function AudioPlayer({
       window.speechSynthesis.cancel();
       utteranceRef.current = null;
     }
+    clearPrefetchCache();
     isPlayingRef.current = false;
     setIsPlaying(false);
     setIsLoadingAudio(false);
   }
 
   // ─── API TTS playback (ElevenLabs or OpenAI) ─────────────────────────────
+
+  /** Raw fetch of one verse's audio as a Blob URL — no UI side effects. */
+  function fetchVerseAudioBlob(idx: number): Promise<VerseAudioResult> {
+    const controller = new AbortController();
+    prefetchAbortRef.current.set(idx, controller);
+
+    return fetch("/api/audio/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        translation,
+        book,
+        chapter,
+        verse: verses[idx].verse,
+        voice: apiVoiceRef.current,
+      }),
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        prefetchAbortRef.current.delete(idx);
+        if (!res.ok) return { ok: false as const, status: res.status };
+        const buf = await res.arrayBuffer();
+        const blobUrl = URL.createObjectURL(new Blob([buf], { type: "audio/mpeg" }));
+        return { ok: true as const, blobUrl };
+      })
+      .catch(() => {
+        prefetchAbortRef.current.delete(idx);
+        return { ok: false as const, status: 0 };
+      });
+  }
+
+  /** Kick off a background fetch for `idx`'s audio, if not already cached/in-flight. */
+  function prefetchVerse(idx: number) {
+    if (idx < 0 || idx >= verses.length) return;
+    if (ttsModeRef.current !== "api") return;
+    if (prefetchCacheRef.current.has(idx)) return;
+    prefetchCacheRef.current.set(idx, fetchVerseAudioBlob(idx));
+  }
 
   function playVerseApi(idx: number) {
     if (idx >= verses.length) {
@@ -206,21 +270,25 @@ export default function AudioPlayer({
       .getElementById(`v${verses[idx].verse}`)
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
 
-    setIsLoadingAudio(true);
+    // Anything prefetched for a verse other than the one we're about to
+    // play is now stale (e.g. the user skipped ahead) — clean it up.
+    clearPrefetchCache(idx);
 
-    fetch("/api/audio/tts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        translation,
-        book,
-        chapter,
-        verse: verses[idx].verse,
-        voice: apiVoiceRef.current,
-      }),
-    })
-      .then(async (res) => {
-        if (res.status === 503) {
+    const cached = prefetchCacheRef.current.get(idx);
+    if (cached) prefetchCacheRef.current.delete(idx);
+    setIsLoadingAudio(!cached);
+
+    const audioPromise = cached ?? fetchVerseAudioBlob(idx);
+
+    audioPromise.then((result) => {
+      // The user navigated elsewhere while this was in flight — discard it.
+      if (currentIdxRef.current !== idx) {
+        if (result.ok) URL.revokeObjectURL(result.blobUrl);
+        return;
+      }
+
+      if (!result.ok) {
+        if (result.status === 503) {
           // No API key — fall back to browser TTS
           ttsModeRef.current = "browser";
           setTtsMode("browser");
@@ -228,7 +296,7 @@ export default function AudioPlayer({
           if (isPlayingRef.current) playVerseBrowser(idx);
           return;
         }
-        if (res.status === 429) {
+        if (result.status === 429) {
           // Daily audio limit reached — fall back to browser TTS and keep going
           toast.message("Daily audio limit reached — switching to device voice");
           ttsModeRef.current = "browser";
@@ -237,50 +305,50 @@ export default function AudioPlayer({
           if (isPlayingRef.current) playVerseBrowser(idx);
           return;
         }
-        if (!res.ok) {
-          console.error("TTS error:", res.status);
-          setIsLoadingAudio(false);
-          stopAll();
-          return;
-        }
-
-        if (ttsModeRef.current === "detecting") {
-          ttsModeRef.current = "api";
-          setTtsMode("api");
-        }
-
-        if (!isPlayingRef.current) {
-          setIsLoadingAudio(false);
-          return;
-        }
-
-        const buf = await res.arrayBuffer();
-        const url = URL.createObjectURL(new Blob([buf], { type: "audio/mpeg" }));
-        blobUrlRef.current = url;
-
-        const audio = new Audio(url);
-        audio.playbackRate = speedRef.current;
-        audioElRef.current = audio;
-        setIsLoadingAudio(false);
-
-        audio.onended = () => {
-          if (audioElRef.current !== audio) return;
-          URL.revokeObjectURL(url);
-          blobUrlRef.current = null;
-          audioElRef.current = null;
-          if (isPlayingRef.current) playVerseRef.current(idx + 1);
-        };
-        audio.onerror = () => {
-          if (audioElRef.current !== audio) return;
-          stopAll();
-        };
-
-        audio.play().catch(() => stopAll());
-      })
-      .catch(() => {
+        console.error("TTS error:", result.status);
         setIsLoadingAudio(false);
         stopAll();
-      });
+        return;
+      }
+
+      if (ttsModeRef.current === "detecting") {
+        ttsModeRef.current = "api";
+        setTtsMode("api");
+      }
+
+      if (!isPlayingRef.current) {
+        setIsLoadingAudio(false);
+        URL.revokeObjectURL(result.blobUrl);
+        return;
+      }
+
+      const audio = new Audio(result.blobUrl);
+      audio.playbackRate = speedRef.current;
+      audioElRef.current = audio;
+      blobUrlRef.current = result.blobUrl;
+      setIsLoadingAudio(false);
+
+      audio.onended = () => {
+        if (audioElRef.current !== audio) return;
+        URL.revokeObjectURL(result.blobUrl);
+        blobUrlRef.current = null;
+        audioElRef.current = null;
+        if (isPlayingRef.current) playVerseRef.current(idx + 1);
+      };
+      audio.onerror = () => {
+        if (audioElRef.current !== audio) return;
+        stopAll();
+      };
+
+      audio
+        .play()
+        .then(() => {
+          // Now that this verse is confirmed playing, prefetch the next
+          // one in the background so it's ready by the time this ends.
+          prefetchVerse(idx + 1);
+        })
+        .catch(() => stopAll());
+    });
   }
 
   // ─── Browser TTS playback ─────────────────────────────────────────────────
@@ -392,6 +460,8 @@ export default function AudioPlayer({
   function handleApiVoice(v: string) {
     apiVoiceRef.current = v;
     setSelectedApiVoice(v);
+    // Anything already fetched/prefetched was generated in the old voice.
+    clearPrefetchCache();
     if (isPlayingRef.current && ttsModeRef.current !== "browser") {
       playVerseApi(currentIdxRef.current);
     }

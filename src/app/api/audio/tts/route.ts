@@ -14,6 +14,36 @@ function todayUtc(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+interface CachedVerse {
+  verse: number;
+  text: string;
+}
+
+/**
+ * Cache-first verse text lookup. By the time someone taps "Listen", they've
+ * almost always already loaded this exact chapter's reading page, so
+ * ChapterCache is very likely warm — this avoids a redundant live
+ * Bolls.life round trip on the synthesis path. Falls back to the normal
+ * live-first fetchChapter() (which populates the cache) on a miss.
+ */
+async function resolveVerseText(
+  translation: string,
+  book: number,
+  chapter: number,
+  verse: number
+): Promise<string | null> {
+  const cached = await db.chapterCache
+    .findUnique({ where: { translation_book_chapter: { translation, book, chapter } } })
+    .catch(() => null);
+  if (cached) {
+    const cachedVerses = cached.verses as unknown as CachedVerse[];
+    const target = cachedVerses.find((v) => v.verse === verse);
+    if (target) return target.text;
+  }
+  const verses = await fetchChapter(translation, book, chapter);
+  return verses.find((v) => v.verse === verse)?.text ?? null;
+}
+
 export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -78,17 +108,16 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Resolve verse text server-side — the client never supplies billable text ──
-  let verses;
+  let rawText: string | null;
   try {
-    verses = await fetchChapter(translation, book, chapter);
+    rawText = await resolveVerseText(translation, book, chapter, verse);
   } catch {
     return NextResponse.json({ error: "Failed to fetch verse text" }, { status: 502 });
   }
-  const target = verses.find((v) => v.verse === verse);
-  if (!target) {
+  if (!rawText) {
     return NextResponse.json({ error: "Verse not found" }, { status: 404 });
   }
-  const text = stripParagraphMark(target.text).slice(0, MAX_TEXT_LENGTH);
+  const text = stripParagraphMark(rawText).slice(0, MAX_TEXT_LENGTH);
   if (!text) {
     return NextResponse.json({ error: "Verse has no text" }, { status: 404 });
   }
@@ -126,7 +155,7 @@ export async function POST(request: NextRequest) {
   }
 
   const audioBuffer = Buffer.from(audio);
-  await db.audioCache
+  db.audioCache
     .create({
       data: {
         translation,
