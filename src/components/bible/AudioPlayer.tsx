@@ -457,6 +457,11 @@ export default function AudioPlayer({
     }
   }
 
+  function cycleSpeed() {
+    const i = SPEEDS.indexOf(speed);
+    handleSpeed(SPEEDS[(i + 1) % SPEEDS.length]);
+  }
+
   function handleApiVoice(v: string) {
     apiVoiceRef.current = v;
     setSelectedApiVoice(v);
@@ -477,141 +482,178 @@ export default function AudioPlayer({
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
+  // Publish the bar's real height so VerseActionsBar can stack above it —
+  // the height varies (two rows on phones, notice row when TTS unsupported).
+  const barRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const update = () =>
+      document.documentElement.style.setProperty(
+        "--audio-bar-h",
+        `${el.offsetHeight}px`
+      );
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.removeProperty("--audio-bar-h");
+    };
+  }, []);
+
   const currentVerse = verses[currentIdx];
   const canPlay = ttsMode === "api" || ttsMode === "detecting" || browserSupported;
   const showApiVoices = isAuthenticated && ttsMode !== "browser" && apiVoices.length > 0;
   const showBrowserVoices = ttsMode === "browser" && browserVoices.length > 1;
 
+  const voiceSelect = showApiVoices ? (
+    <select
+      value={selectedApiVoice}
+      onChange={(e) => handleApiVoice(e.target.value)}
+      className="text-xs rounded-md px-2 h-11 sm:h-8 bg-muted border-0 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer max-w-[110px] shrink-0"
+      aria-label="Voice"
+    >
+      {apiVoices.map((v) => (
+        <option key={v.id} value={v.id}>
+          {v.name}
+        </option>
+      ))}
+    </select>
+  ) : showBrowserVoices ? (
+    <select
+      value={selectedBrowserVoice}
+      onChange={(e) => handleBrowserVoice(e.target.value)}
+      className="text-xs rounded-md px-2 h-11 sm:h-8 bg-muted border-0 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer max-w-[100px] shrink-0"
+      aria-label="Voice"
+    >
+      {browserVoices.map((v) => (
+        <option key={v.voiceURI} value={v.voiceURI}>
+          {v.name.replace(/\(.*?\)/g, "").trim()}
+        </option>
+      ))}
+    </select>
+  ) : null;
+
   return (
     <div
+      ref={barRef}
       className="fixed right-0 z-30 border-t bg-card/95 backdrop-blur-sm shadow-lg"
       style={{
         left: "var(--shell-left, 0px)",
         bottom: "var(--shell-bottom, 0px)",
       }}
     >
-      <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-        {/* Status icon */}
-        <Volume2
-          className={cn(
-            "h-4 w-4 shrink-0 transition-colors",
-            isPlaying ? "text-primary" : "text-muted-foreground"
-          )}
-        />
-
-        {/* Verse info */}
-        <div className="flex-1 min-w-0">
-          <p className="text-xs text-muted-foreground leading-none">
-            {bookName} {chapter}
-          </p>
-          <p className="text-sm font-medium leading-tight mt-0.5">
+      <div className="max-w-3xl mx-auto px-3 sm:px-4 py-2 sm:py-3">
+        {/* Phone header row: label + close */}
+        <div className="flex sm:hidden items-center gap-2">
+          <Volume2
+            className={cn(
+              "h-4 w-4 shrink-0 transition-colors",
+              isPlaying ? "text-primary" : "text-muted-foreground"
+            )}
+          />
+          <p className="flex-1 min-w-0 truncate text-sm font-medium">
+            {bookName} {chapter} ·{" "}
             {isLoadingAudio
               ? "Loading…"
               : `Verse ${currentVerse?.verse} of ${verses.length}`}
           </p>
-        </div>
-
-        {/* Prev · Play/Pause · Next */}
-        <div className="flex items-center gap-1 shrink-0">
           <Button
             variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-            onClick={handlePrev}
-            disabled={isLoadingAudio}
-            aria-label="Previous verse"
+            className="h-9 w-9 p-0 shrink-0"
+            onClick={() => {
+              stopAll();
+              onClose();
+            }}
+            aria-label="Close audio player"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <X className="h-4 w-4" />
           </Button>
+        </div>
 
-          <Button
-            variant="default"
-            size="sm"
-            className="h-9 w-9 p-0 rounded-full"
-            onClick={handlePlayPause}
-            disabled={!canPlay || isLoadingAudio}
-            aria-label={isPlaying ? "Pause" : "Play"}
-          >
-            {isPlaying ? (
-              <Pause className="h-4 w-4" />
-            ) : (
-              <Play className="h-4 w-4 ml-0.5" />
+        {/* Controls row (whole bar on sm+) */}
+        <div className="flex items-center gap-1 sm:gap-3">
+          {/* Desktop label */}
+          <Volume2
+            className={cn(
+              "hidden sm:block h-4 w-4 shrink-0 transition-colors",
+              isPlaying ? "text-primary" : "text-muted-foreground"
             )}
-          </Button>
+          />
+          <div className="hidden sm:block flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground leading-none">
+              {bookName} {chapter}
+            </p>
+            <p className="text-sm font-medium leading-tight mt-0.5">
+              {isLoadingAudio
+                ? "Loading…"
+                : `Verse ${currentVerse?.verse} of ${verses.length}`}
+            </p>
+          </div>
 
+          {/* Prev · Play/Pause · Next — centered on phones */}
+          <div className="flex flex-1 sm:flex-none items-center justify-center sm:justify-start gap-1 shrink-0">
+            <Button
+              variant="ghost"
+              className="h-11 w-11 sm:h-9 sm:w-9 p-0"
+              onClick={handlePrev}
+              disabled={isLoadingAudio}
+              aria-label="Previous verse"
+            >
+              <ChevronLeft className="h-5 w-5 sm:h-4 sm:w-4" />
+            </Button>
+
+            <Button
+              variant="default"
+              className="h-11 w-11 sm:h-9 sm:w-9 p-0 rounded-full"
+              onClick={handlePlayPause}
+              disabled={!canPlay || isLoadingAudio}
+              aria-label={isPlaying ? "Pause" : "Play"}
+            >
+              {isPlaying ? (
+                <Pause className="h-5 w-5 sm:h-4 sm:w-4" />
+              ) : (
+                <Play className="h-5 w-5 sm:h-4 sm:w-4 ml-0.5" />
+              )}
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="h-11 w-11 sm:h-9 sm:w-9 p-0"
+              onClick={handleNext}
+              disabled={isLoadingAudio}
+              aria-label="Next verse"
+            >
+              <ChevronRight className="h-5 w-5 sm:h-4 sm:w-4" />
+            </Button>
+          </div>
+
+          {/* Speed — one cycling button instead of five chips */}
           <Button
             variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-            onClick={handleNext}
-            disabled={isLoadingAudio}
-            aria-label="Next verse"
+            onClick={cycleSpeed}
+            aria-label={`Playback speed ${speed}×, tap to change`}
+            className="h-11 sm:h-9 px-2 min-w-[52px] font-mono text-xs text-muted-foreground hover:text-foreground shrink-0"
           >
-            <ChevronRight className="h-4 w-4" />
+            {speed}×
+          </Button>
+
+          {voiceSelect}
+
+          {/* Close — desktop (phones have it in the header row) */}
+          <Button
+            variant="ghost"
+            className="hidden sm:flex h-9 w-9 p-0 shrink-0"
+            onClick={() => {
+              stopAll();
+              onClose();
+            }}
+            aria-label="Close audio player"
+          >
+            <X className="h-4 w-4" />
           </Button>
         </div>
-
-        {/* Speed selector */}
-        <div className="flex items-center gap-0.5 shrink-0">
-          {SPEEDS.map((s) => (
-            <button
-              key={s}
-              onClick={() => handleSpeed(s)}
-              className={cn(
-                "text-[10px] font-mono px-1 py-0.5 rounded transition-colors",
-                speed === s
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              )}
-            >
-              {s}×
-            </button>
-          ))}
-        </div>
-
-        {/* Voice selector */}
-        {showApiVoices && (
-          <select
-            value={selectedApiVoice}
-            onChange={(e) => handleApiVoice(e.target.value)}
-            className="text-xs rounded px-1.5 py-0.5 bg-muted border-0 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer max-w-[100px] shrink-0"
-            aria-label="Voice"
-          >
-            {apiVoices.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.name}
-              </option>
-            ))}
-          </select>
-        )}
-        {showBrowserVoices && (
-          <select
-            value={selectedBrowserVoice}
-            onChange={(e) => handleBrowserVoice(e.target.value)}
-            className="text-xs rounded px-1.5 py-0.5 bg-muted border-0 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer max-w-[90px] shrink-0"
-            aria-label="Voice"
-          >
-            {browserVoices.map((v) => (
-              <option key={v.voiceURI} value={v.voiceURI}>
-                {v.name.replace(/\(.*?\)/g, "").trim()}
-              </option>
-            ))}
-          </select>
-        )}
-
-        {/* Close */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0 shrink-0"
-          onClick={() => {
-            stopAll();
-            onClose();
-          }}
-          aria-label="Close audio player"
-        >
-          <X className="h-4 w-4" />
-        </Button>
       </div>
 
       {!canPlay && (

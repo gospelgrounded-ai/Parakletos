@@ -24,6 +24,8 @@ import ShareVerseModal from "./ShareVerseModal";
 interface VerseActionsBarProps {
   verse: number;
   verseEnd?: number | null;
+  /** Whether tapping a second verse extends the selection (default mode only) */
+  rangeCapable?: boolean;
   text: string;
   translation: string;
   book: number;
@@ -46,6 +48,7 @@ interface VerseActionsBarProps {
 export default function VerseActionsBar({
   verse,
   verseEnd,
+  rangeCapable = false,
   text,
   translation,
   book,
@@ -138,8 +141,8 @@ export default function VerseActionsBar({
     if (!noteContent.trim()) return;
     setIsSavingNote(true);
     try {
+      // Success toast comes from the parent handler — don't double up.
       await onNote(noteContent.trim());
-      toast.success("Note saved");
       setShowNoteEditor(false);
     } finally {
       setIsSavingNote(false);
@@ -295,30 +298,46 @@ export default function VerseActionsBar({
       {/* Actions Bar */}
       <div
         className="fixed left-0 right-0 z-40 flex justify-center px-4 pb-3 pointer-events-none"
-        style={{ bottom: "var(--shell-bottom, 0px)" }}
+        style={{
+          bottom: "calc(var(--shell-bottom, 0px) + var(--audio-bar-h, 0px))",
+        }}
       >
         <div className="bg-card border rounded-2xl shadow-xl pointer-events-auto w-full max-w-lg animate-fade-in">
           {/* Verse reference */}
           <div className="px-4 pt-3 pb-2 border-b">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-primary">{ref}</p>
-              <button onClick={onClose} className="p-1 rounded-md hover:bg-muted">
-                <X className="h-3.5 w-3.5 text-muted-foreground" />
+              <button
+                onClick={onClose}
+                className="p-2 -m-1 rounded-md hover:bg-muted"
+                aria-label="Close verse actions"
+              >
+                <X className="h-4 w-4 text-muted-foreground" />
               </button>
             </div>
             <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5 font-serif">{text}</p>
+            {isRange ? (
+              <p className="text-[11px] text-muted-foreground/80 mt-1">
+                Bookmarks, notes & study apply to single verses
+              </p>
+            ) : rangeCapable ? (
+              <p className="text-[11px] text-muted-foreground/80 mt-1">
+                Tap another verse to select a range
+              </p>
+            ) : null}
           </div>
 
           {/* Color picker (shown when highlight active) */}
           {showColors && (
             <div className="px-4 py-2 border-b flex items-center gap-2">
               <span className="text-xs text-muted-foreground mr-1">Highlight:</span>
-              {HIGHLIGHT_COLORS.map(({ color, bg }) => (
+              {HIGHLIGHT_COLORS.map(({ color, label, bg }) => (
                 <button
                   key={color}
                   onClick={() => handleColorSelect(color)}
+                  aria-label={`Highlight ${label}`}
                   className={cn(
-                    "w-7 h-7 rounded-full transition-transform hover:scale-110 border-2",
+                    "w-9 h-9 rounded-full transition-transform hover:scale-110 border-2",
                     bg,
                     currentHighlight === color ? "border-foreground scale-110" : "border-transparent"
                   )}

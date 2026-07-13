@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, BookOpen, GitBranch, Scroll } from "lucide-react";
+import { X, BookOpen, GitBranch, Scroll, ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatReference } from "@/lib/bible-books";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
@@ -311,7 +311,7 @@ function CrossRefsTab({
             className="block px-4 py-3 hover:bg-muted/50 transition-colors"
           >
             <p className="text-xs font-semibold text-primary mb-1">{ref.reference}</p>
-            <p className="text-xs text-muted-foreground font-serif leading-relaxed line-clamp-3">
+            <p className="text-sm text-muted-foreground font-serif leading-relaxed line-clamp-3">
               {ref.text}
             </p>
           </Link>
@@ -398,7 +398,11 @@ function CommentaryTab({
                 <p className="text-xs font-semibold">{commentary.name}</p>
                 <p className="text-[10px] text-muted-foreground">Public domain</p>
               </div>
-              <span className="text-muted-foreground text-[10px]">{isOpen ? "▲" : "▼"}</span>
+              {isOpen ? (
+                <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              )}
             </button>
 
             {isOpen && (
@@ -408,7 +412,7 @@ function CommentaryTab({
                     {splitIntoParagraphs(commentary.introduction).map((para, idx) => (
                       <p
                         key={idx}
-                        className="text-[11px] text-muted-foreground leading-relaxed font-serif"
+                        className="text-xs text-muted-foreground leading-relaxed font-serif"
                       >
                         {para}
                       </p>
@@ -425,8 +429,8 @@ function CommentaryTab({
                         verse === v.verse && "bg-primary/5 border-l-2 border-l-primary"
                       )}
                     >
-                      <p className="text-[10px] font-semibold text-primary mb-1">v.{v.verse}</p>
-                      <p className="text-xs text-foreground/80 leading-relaxed font-serif">
+                      <p className="text-[11px] font-semibold text-primary mb-1">v.{v.verse}</p>
+                      <p className="text-sm text-foreground/80 leading-relaxed font-serif">
                         {v.text}
                       </p>
                     </div>

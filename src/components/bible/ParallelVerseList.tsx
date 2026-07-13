@@ -60,8 +60,8 @@ export default function ParallelVerseList({
         </p>
       </header>
 
-      {/* Column headers */}
-      <div className="grid grid-cols-2 mb-3 pb-2 border-b">
+      {/* Column headers — phones stack the columns, so headers only on sm+ */}
+      <div className="hidden sm:grid grid-cols-2 mb-3 pb-2 border-b">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           {translation}
         </p>
@@ -92,14 +92,16 @@ export default function ParallelVerseList({
               key={verse.pk}
               id={`v${verse.verse}`}
               className={cn(
-                "grid grid-cols-2 py-2.5 cursor-pointer rounded-sm transition-colors",
+                "grid grid-cols-1 sm:grid-cols-2 py-2.5 cursor-pointer rounded-sm transition-colors",
                 "hover:bg-primary/5",
                 isSelected && "bg-primary/10 outline outline-1 outline-primary/20"
               )}
               onClick={() => onVerseClick(verse.verse)}
+              // Respect the reader font-size setting, slightly reduced for columns
+              style={{ fontSize: "calc(var(--reader-font-size, 1.25rem) * 0.85)" }}
             >
               {/* Primary column */}
-              <div className="pr-3 text-sm sm:text-base leading-relaxed bible-text">
+              <div className="sm:pr-3 leading-relaxed bible-text" style={{ fontSize: "inherit" }}>
                 <sup className="bible-verse-num select-none mr-0.5">{verse.verse}</sup>
                 {highlightClass ? (
                   <mark className={cn("bg-transparent rounded-sm", highlightClass)}>
@@ -120,8 +122,14 @@ export default function ParallelVerseList({
                 )}
               </div>
 
-              {/* Secondary column */}
-              <div className="pl-3 text-sm sm:text-base leading-relaxed bible-text text-foreground/70 border-l border-border/60">
+              {/* Secondary column — stacks under the primary on phones */}
+              <div
+                className="mt-1 sm:mt-0 sm:pl-3 leading-relaxed bible-text text-foreground/70 sm:border-l border-border/60"
+                style={{ fontSize: "inherit" }}
+              >
+                <span className="sm:hidden text-[10px] font-sans font-semibold uppercase tracking-wider text-muted-foreground mr-1.5 align-middle">
+                  {parallelTranslation}
+                </span>
                 <sup className="bible-verse-num select-none mr-0.5 opacity-50">{verse.verse}</sup>
                 {secondaryText ?? <span className="opacity-20">—</span>}
               </div>

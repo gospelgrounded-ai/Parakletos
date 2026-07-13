@@ -14,6 +14,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { BIBLE_BOOKS, BibleBook } from "@/lib/bible-books";
+import TranslationSelector from "./TranslationSelector";
 
 interface BookChapterSelectorProps {
   translation: string;
@@ -21,6 +22,7 @@ interface BookChapterSelectorProps {
   currentChapter: number;
   isOpen: boolean;
   onClose: () => void;
+  extraSearch?: string;
 }
 
 export default function BookChapterSelector({
@@ -29,6 +31,7 @@ export default function BookChapterSelector({
   currentChapter,
   isOpen,
   onClose,
+  extraSearch,
 }: BookChapterSelectorProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -92,16 +95,29 @@ export default function BookChapterSelector({
           </div>
 
           {view === "books" && (
-            <div className="relative mt-2">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <Input
-                placeholder="Search books…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 h-9"
-                autoFocus
-              />
-            </div>
+            <>
+              <div className="relative mt-2">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder="Search books…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 h-9"
+                  autoFocus
+                />
+              </div>
+
+              {/* On phones the top bar has no translation control — offer it here */}
+              <div className="sm:hidden mt-2 flex items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground">Translation</span>
+                <TranslationSelector
+                  currentTranslation={translation}
+                  book={currentBook}
+                  chapter={currentChapter}
+                  extraSearch={extraSearch}
+                />
+              </div>
+            </>
           )}
         </SheetHeader>
 

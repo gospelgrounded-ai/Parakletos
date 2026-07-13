@@ -463,6 +463,7 @@ export default function BibleReaderClient({
         <VerseActionsBar
           verse={selectedVerse}
           verseEnd={rangeEnd}
+          rangeCapable={!parallelTranslation && !interlinearMode}
           text={selectedVerseText}
           translation={translation}
           book={book}

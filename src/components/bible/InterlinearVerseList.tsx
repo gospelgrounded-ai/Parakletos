@@ -249,11 +249,13 @@ export default function InterlinearVerseList({
                         {/* English word */}
                         <span
                           className={cn(
-                            "text-sm sm:text-base leading-tight mt-0.5",
+                            "leading-tight mt-0.5",
                             hasStrongs
                               ? "font-medium text-foreground"
                               : "text-foreground/70"
                           )}
+                          // Respect the reader font-size setting, reduced for word stacks
+                          style={{ fontSize: "calc(var(--reader-font-size, 1.25rem) * 0.8)" }}
                         >
                           {token.word}
                         </span>

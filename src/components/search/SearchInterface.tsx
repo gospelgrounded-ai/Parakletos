@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Search, BookOpen, ArrowRight, Filter } from "lucide-react";
+import { Search, BookOpen, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BIBLE_BOOKS } from "@/lib/bible-books";
@@ -306,7 +306,7 @@ export default function SearchInterface() {
                   key={value}
                   onClick={() => setTestament(value)}
                   className={cn(
-                    "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                    "px-3 py-2 sm:py-1.5 text-xs font-medium rounded-md transition-colors",
                     testament === value
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
