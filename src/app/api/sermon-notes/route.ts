@@ -13,7 +13,18 @@ export async function GET() {
     const notes = await db.sermonNote.findMany({
       where: { userId: session.user.id },
       orderBy: { updatedAt: "desc" },
-      select: { id: true, title: true, date: true, speaker: true, location: true, notes: true, updatedAt: true },
+      select: {
+        id: true,
+        title: true,
+        date: true,
+        speaker: true,
+        location: true,
+        notes: true,
+        series: true,
+        tags: true,
+        isFavorite: true,
+        updatedAt: true,
+      },
     });
     return NextResponse.json(notes);
   } catch (error) {

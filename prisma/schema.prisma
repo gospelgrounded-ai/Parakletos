@@ -274,15 +274,20 @@ model PrayerEntry {
 // ─── Sermon Notes ────────────────────────────────────────────────────────────
 
 model SermonNote {
-  id        String   @id @default(cuid())
-  userId    String
-  title     String   @default("Untitled Sermon")
-  date      String   // YYYY-MM-DD
-  speaker   String   @default("")
-  location  String   @default("")
-  notes     String   @default("")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  userId      String
+  title       String   @default("Untitled Sermon")
+  date        String   // YYYY-MM-DD
+  speaker     String   @default("")
+  location    String   @default("")
+  notes       String   @default("")
+  series      String   @default("")
+  tags        String   @default("") // comma-separated
+  isFavorite  Boolean  @default(false)
+  shareToken  String?  @unique // null = private
+  translation String? // per-note override; null = user default
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

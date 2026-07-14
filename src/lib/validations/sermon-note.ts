@@ -11,6 +11,10 @@ const fields = {
   speaker: z.string().max(200),
   location: z.string().max(200),
   notes: z.string().max(50_000),
+  series: z.string().max(200),
+  tags: z.string().max(500),
+  isFavorite: z.boolean(),
+  translation: z.string().max(10).nullable(),
 };
 
 export const sermonNoteUpdateSchema = z.object(fields).partial();
