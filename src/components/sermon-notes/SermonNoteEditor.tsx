@@ -485,7 +485,24 @@ export default function SermonNoteEditor({ note }: Props) {
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Notes</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground">Notes</Label>
+              {notes.trim() === "" && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() =>
+                    handleChange(
+                      "notes",
+                      "## Big Idea\n\n\n## Key Points\n\n1. \n\n## Scriptures\n\n\n## Application\n\n\n## Prayer\n\n"
+                    )
+                  }
+                >
+                  Use outline
+                </Button>
+              )}
+            </div>
 
             {/* Mobile: scripture cards appear above the textarea */}
             {detectedRefs.length > 0 && (

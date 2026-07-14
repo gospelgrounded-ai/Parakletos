@@ -15,6 +15,7 @@ import {
   HandHeart,
   Brain,
   Sun,
+  NotebookPen,
 } from "lucide-react";
 
 interface TodayAction {
@@ -29,7 +30,7 @@ export default async function HomePage() {
   const userId = session!.user!.id!;
 
   // Fetch reading progress, active plans, streak, and memory-verse due count in parallel
-  const [progress, enrollments, dueMemoryCount, highlightCount] = await Promise.all([
+  const [progress, enrollments, dueMemoryCount, highlightCount, recentSermon] = await Promise.all([
     db.readingProgress.findUnique({ where: { userId } }),
     db.planEnrollment.findMany({
       where: { userId, completedAt: null },
@@ -43,6 +44,11 @@ export default async function HomePage() {
     }),
     db.memoryVerse.count({ where: { userId, nextReview: { lte: new Date() } } }),
     db.highlight.count({ where: { userId } }),
+    db.sermonNote.findFirst({
+      where: { userId },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, title: true, updatedAt: true },
+    }),
   ]);
 
   const votd = await getVerseOfTheDay(progress?.translation ?? "KJV");
@@ -108,6 +114,17 @@ export default async function HomePage() {
       icon: <Brain className="h-5 w-5 text-primary" />,
       title: `Review ${dueMemoryCount} memory verse${dueMemoryCount === 1 ? "" : "s"}`,
       subtitle: "Keep the Word hidden in your heart",
+    });
+  }
+
+  // Resurface this week's sermon notes while they're still fresh
+  const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+  if (recentSermon && Date.now() - recentSermon.updatedAt.getTime() < WEEK_MS) {
+    todayActions.push({
+      href: `/sermon-notes/${recentSermon.id}`,
+      icon: <NotebookPen className="h-5 w-5 text-primary" />,
+      title: `Review: ${recentSermon.title || "Untitled Sermon"}`,
+      subtitle: "Revisit this week's sermon notes",
     });
   }
 
