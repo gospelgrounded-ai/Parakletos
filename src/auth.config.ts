@@ -31,10 +31,15 @@ export const authConfig: NextAuthConfig = {
         pathname === "/sw.js" ||
         pathname === "/manifest.webmanifest" ||
         pathname === "/pwa-icon-192" ||
-        pathname === "/pwa-icon-512"
+        pathname === "/pwa-icon-512" ||
+        pathname === "/pwa-icon-maskable-192" ||
+        pathname === "/pwa-icon-maskable-512"
       ) {
         return true;
       }
+
+      // Always public — shared read-only pages (tokenized links)
+      if (pathname.startsWith("/shared/")) return true;
 
       // Always public — Bible reading (any specific chapter)
       // /bible/<translation>/<book>/<chapter>

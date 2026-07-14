@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { BookOpen, ChevronLeft, Star, Trash2, X } from "lucide-react";
+import { BookOpen, ChevronLeft, Link2, Link2Off, Star, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { detectScriptureRefs } from "@/lib/detect-scriptures";
 import { formatStamp, parseStamps } from "@/lib/timestamps";
@@ -83,6 +84,8 @@ export default function SermonNoteEditor({ note }: Props) {
   const [tagInput, setTagInput] = useState("");
   const [isFavorite, setIsFavorite] = useState(note.isFavorite);
   const [translationPref, setTranslationPref] = useState<string | null>(note.translation);
+  const [shareToken, setShareToken] = useState(note.shareToken);
+  const [sharing, setSharing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -191,6 +194,42 @@ export default function SermonNoteEditor({ note }: Props) {
     updateField("translation", next);
   }
 
+  async function copyShareLink(token: string) {
+    const url = `${window.location.origin}/shared/sermon/${token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Share link copied — anyone with it can read this note");
+    } catch {
+      toast.error("Couldn't copy the link");
+    }
+  }
+
+  async function enableShare() {
+    setSharing(true);
+    try {
+      const res = await fetch(`/api/sermon-notes/${note.id}/share`, { method: "POST" });
+      if (!res.ok) throw new Error();
+      const { token } = await res.json();
+      setShareToken(token);
+      await copyShareLink(token);
+    } catch {
+      toast.error("Couldn't create a share link");
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  async function stopSharing() {
+    try {
+      const res = await fetch(`/api/sermon-notes/${note.id}/share`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setShareToken(null);
+      toast.success("Sharing stopped — the old link no longer works");
+    } catch {
+      toast.error("Couldn't stop sharing");
+    }
+  }
+
   async function deleteNote() {
     await fetch(`/api/sermon-notes/${note.id}`, { method: "DELETE" });
     router.push("/sermon-notes");
@@ -246,6 +285,43 @@ export default function SermonNoteEditor({ note }: Props) {
           >
             <Star className={cn("h-4 w-4", isFavorite && "fill-current")} />
           </Button>
+
+          {shareToken ? (
+            <>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-9 w-9 text-primary"
+                onClick={() => copyShareLink(shareToken)}
+                aria-label="Copy share link"
+                title="Copy share link"
+              >
+                <Link2 className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                onClick={stopSharing}
+                aria-label="Stop sharing"
+                title="Stop sharing"
+              >
+                <Link2Off className="h-4 w-4" />
+              </Button>
+            </>
+          ) : (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-9 w-9 text-muted-foreground hover:text-foreground"
+              onClick={enableShare}
+              disabled={sharing}
+              aria-label="Share via link"
+              title="Share via link"
+            >
+              <Link2 className="h-4 w-4" />
+            </Button>
+          )}
 
           {confirmDelete ? (
             <div className="flex items-center gap-2">
