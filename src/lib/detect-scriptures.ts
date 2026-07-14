@@ -39,10 +39,38 @@ export interface DetectedRef {
   book: number;
   chapter: number;
   verse: number | null;
+  verseEnd: number | null;
 }
 
-// Matches: optional leading digit ("1 ", "2 ", "3 "), one or two word book name, chapter, optional :verse
-const REF_REGEX = /\b((?:[123]\s+)?[A-Za-z]+(?:\s+[A-Za-z]+)?)\s+(\d+)(?::(\d+))?/g;
+// Captures generously — up to four book-name words (so "Song of Solomon"
+// fits, and prose words before a book name are tolerated), the chapter, and
+// an optional verse spec with ranges and comma lists (":16-18, 22").
+// The captured words are resolved against the alias map by LONGEST SUFFIX
+// first, so "love God John 3:16" resolves via the "john" suffix instead of
+// failing on "love god john" and silently consuming the reference.
+const REF_REGEX =
+  /\b((?:[123]\s+)?[A-Za-z]+(?:\s+[A-Za-z]+){0,3})\s+(\d{1,3})\b((?::\d{1,3}(?:\s*[-–]\s*\d{1,3})?)(?:\s*,\s*\d{1,3}(?:\s*[-–]\s*\d{1,3})?)*)?/g;
+
+interface VerseSegment {
+  verse: number;
+  verseEnd: number | null;
+}
+
+function parseVerseSpec(spec: string | undefined): VerseSegment[] | null {
+  if (!spec) return null;
+  const segments: VerseSegment[] = [];
+  for (const part of spec.replace(/^:/, "").split(/\s*,\s*/)) {
+    const [startStr, endStr] = part.split(/\s*[-–]\s*/);
+    const verse = parseInt(startStr, 10);
+    if (!Number.isInteger(verse) || verse < 1) continue;
+    let verseEnd: number | null = endStr ? parseInt(endStr, 10) : null;
+    if (verseEnd !== null && (!Number.isInteger(verseEnd) || verseEnd <= verse)) {
+      verseEnd = null;
+    }
+    segments.push({ verse, verseEnd });
+  }
+  return segments.length > 0 ? segments : null;
+}
 
 export function detectScriptureRefs(text: string): DetectedRef[] {
   const seen = new Set<string>();
@@ -51,28 +79,47 @@ export function detectScriptureRefs(text: string): DetectedRef[] {
   REF_REGEX.lastIndex = 0;
 
   while ((m = REF_REGEX.exec(text)) !== null) {
-    const rawBook = m[1].trim().toLowerCase();
+    const words = m[1].trim().toLowerCase().split(/\s+/);
+
+    // Longest suffix first: "verse 1 john" → "1 john"; "love god john" → "john"
+    let bookId: number | undefined;
+    for (let start = 0; start < words.length; start++) {
+      const candidate = words.slice(start).join(" ");
+      const id = ALIAS_MAP.get(candidate);
+      if (id) {
+        bookId = id;
+        break;
+      }
+    }
+
     const chapter = parseInt(m[2], 10);
-    const verse = m[3] ? parseInt(m[3], 10) : null;
+    const bookInfo = bookId ? BIBLE_BOOKS.find((b) => b.id === bookId) : undefined;
 
-    const bookId = ALIAS_MAP.get(rawBook);
-    if (!bookId) continue;
+    if (!bookInfo || chapter < 1 || chapter > bookInfo.chapters) {
+      // Don't let a failed match swallow the text it consumed — a numbered
+      // book right after prose ("love God 1 John 3:16") would otherwise lose
+      // its leading digit. Resume just past the first captured word.
+      REF_REGEX.lastIndex = m.index + Math.max(words[0].length, 1);
+      continue;
+    }
 
-    const bookInfo = BIBLE_BOOKS.find((b) => b.id === bookId);
-    if (!bookInfo) continue;
-    if (chapter < 1 || chapter > bookInfo.chapters) continue;
+    const segments = parseVerseSpec(m[3]) ?? [{ verse: null, verseEnd: null }];
+    for (const seg of segments) {
+      const verse = seg.verse as number | null;
+      const verseEnd = seg.verseEnd ?? null;
+      const key = `${bookInfo.id}:${chapter}:${verse ?? 0}${verseEnd ? `-${verseEnd}` : ""}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
 
-    const key = `${bookId}:${chapter}:${verse ?? 0}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-
-    results.push({
-      key,
-      display: `${bookInfo.name} ${chapter}${verse ? `:${verse}` : ""}`,
-      book: bookId,
-      chapter,
-      verse,
-    });
+      results.push({
+        key,
+        display: `${bookInfo.name} ${chapter}${verse ? `:${verse}` : ""}${verseEnd ? `-${verseEnd}` : ""}`,
+        book: bookInfo.id,
+        chapter,
+        verse,
+        verseEnd,
+      });
+    }
   }
 
   return results;

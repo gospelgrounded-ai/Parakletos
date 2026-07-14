@@ -27,7 +27,17 @@ export default function ScriptureCard({ scripture, translation = "KJV" }: Props)
   const verses: Array<{ verse: number; text: string }> = data?.verses ?? [];
 
   let verseText: string | null = null;
-  if (scripture.verse !== null) {
+  if (scripture.verse !== null && scripture.verseEnd) {
+    // Range: join up to 6 verses, ellipsis if the range is longer
+    const start = scripture.verse;
+    const cap = Math.min(scripture.verseEnd, start + 5);
+    const parts = verses
+      .filter((v) => v.verse >= start && v.verse <= cap)
+      .map((v) => cleanVerseText(v.text));
+    if (parts.length > 0) {
+      verseText = parts.join(" ") + (scripture.verseEnd > cap ? " …" : "");
+    }
+  } else if (scripture.verse !== null) {
     const v = verses.find((v) => v.verse === scripture.verse);
     if (v) verseText = cleanVerseText(v.text);
   } else if (verses.length > 0) {
