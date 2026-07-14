@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { BookOpen, ChevronLeft, Star, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { detectScriptureRefs } from "@/lib/detect-scriptures";
+import { formatStamp, parseStamps } from "@/lib/timestamps";
 import { useAutosave } from "@/hooks/useAutosave";
 import { useReaderSettings } from "@/hooks/useReaderSettings";
 import { useTranslations } from "@/hooks/useTranslations";
@@ -87,6 +88,7 @@ export default function SermonNoteEditor({ note }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const detectedRefs = useMemo(() => detectScriptureRefs(notes), [notes]);
+  const stamps = useMemo(() => parseStamps(notes), [notes]);
   const cardTranslation = translationPref ?? settings.defaultTranslation;
 
   // Existing series names for the datalist (deduped, excluding blanks)
@@ -393,12 +395,16 @@ export default function SermonNoteEditor({ note }: Props) {
             </div>
           </div>
 
-          {/* Audio recorder — download-only; recordings are not stored with the note */}
+          {/* Audio recorder — persists on this device (IndexedDB), never uploaded */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">
-              Record &amp; download (audio isn&apos;t saved with the note)
+              Recording (kept on this device — not uploaded)
             </Label>
-            <AudioRecorder />
+            <AudioRecorder
+              noteId={note.id}
+              stamps={stamps}
+              onStamp={(seconds) => insertAtCursor(`${formatStamp(seconds)} `)}
+            />
           </div>
 
           {/* Notes */}
