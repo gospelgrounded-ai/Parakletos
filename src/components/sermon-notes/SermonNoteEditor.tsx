@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { BookOpen, ChevronLeft, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { detectScriptureRefs } from "@/lib/detect-scriptures";
+import { useAutosave } from "@/hooks/useAutosave";
 import AudioRecorder from "./AudioRecorder";
 import ScriptureCard from "./ScriptureCard";
 
@@ -20,8 +21,6 @@ interface SermonNote {
   location: string;
   notes: string;
 }
-
-type SaveStatus = "idle" | "pending" | "saving" | "saved" | "error";
 
 interface Props {
   note: SermonNote;
@@ -44,38 +43,20 @@ export default function SermonNoteEditor({ note }: Props) {
   const [speaker, setSpeaker] = useState(note.speaker);
   const [location, setLocation] = useState(note.location);
   const [notes, setNotes] = useState(note.notes);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [confirmDelete, setConfirmDelete] = useState(false);
-
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const detectedRefs = useMemo(() => detectScriptureRefs(notes), [notes]);
 
-  const doSave = useCallback(
-    async (payload: Omit<SermonNote, "id">) => {
-      setSaveStatus("saving");
-      try {
-        const res = await fetch(`/api/sermon-notes/${note.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        setSaveStatus(res.ok ? "saved" : "error");
-      } catch {
-        setSaveStatus("error");
-      }
+  const { status: saveStatus, schedule } = useAutosave<Omit<SermonNote, "id">>({
+    save: async (payload) => {
+      const res = await fetch(`/api/sermon-notes/${note.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      return res.ok;
     },
-    [note.id]
-  );
-
-  const scheduleAutoSave = useCallback(
-    (payload: Omit<SermonNote, "id">) => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      setSaveStatus("pending");
-      timerRef.current = setTimeout(() => doSave(payload), 1500);
-    },
-    [doSave]
-  );
+  });
 
   type FieldKey = keyof Omit<SermonNote, "id">;
 
@@ -88,7 +69,7 @@ export default function SermonNoteEditor({ note }: Props) {
       case "location": setLocation(value); break;
       case "notes":    setNotes(value);    break;
     }
-    scheduleAutoSave(formRef.current);
+    schedule(formRef.current);
   }
 
   async function deleteNote() {

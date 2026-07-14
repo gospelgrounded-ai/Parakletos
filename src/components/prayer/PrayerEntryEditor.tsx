@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ChevronLeft, Trash2, CheckCircle2, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAutosave } from "@/hooks/useAutosave";
 
 interface PrayerEntry {
   id: string;
@@ -14,8 +15,6 @@ interface PrayerEntry {
   content: string;
   isAnswered: boolean;
 }
-
-type SaveStatus = "idle" | "pending" | "saving" | "saved" | "error";
 
 interface Props {
   entry: PrayerEntry;
@@ -29,42 +28,24 @@ export default function PrayerEntryEditor({ entry }: Props) {
   const [title, setTitle] = useState(entry.title);
   const [content, setContent] = useState(entry.content);
   const [isAnswered, setIsAnswered] = useState(entry.isAnswered);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const doSave = useCallback(
-    async (payload: { title: string; content: string }) => {
-      setSaveStatus("saving");
-      try {
-        const res = await fetch(`/api/prayer/${entry.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        setSaveStatus(res.ok ? "saved" : "error");
-      } catch {
-        setSaveStatus("error");
-      }
+  const { status: saveStatus, schedule } = useAutosave<{ title: string; content: string }>({
+    save: async (payload) => {
+      const res = await fetch(`/api/prayer/${entry.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      return res.ok;
     },
-    [entry.id]
-  );
-
-  const scheduleAutoSave = useCallback(
-    (payload: { title: string; content: string }) => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      setSaveStatus("pending");
-      timerRef.current = setTimeout(() => doSave(payload), 1500);
-    },
-    [doSave]
-  );
+  });
 
   function handleChange(key: "title" | "content", value: string) {
     formRef.current = { ...formRef.current, [key]: value };
     if (key === "title") setTitle(value);
     else setContent(value);
-    scheduleAutoSave(formRef.current);
+    schedule(formRef.current);
   }
 
   async function toggleAnswered() {

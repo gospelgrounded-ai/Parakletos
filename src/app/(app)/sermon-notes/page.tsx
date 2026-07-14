@@ -35,7 +35,10 @@ function formatDate(dateStr: string) {
 export default function SermonNotesPage() {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
-  const { data: notes, isLoading } = useSWR<SermonNote[]>("/api/sermon-notes", fetcher);
+  const { data: notes, isLoading, error, mutate } = useSWR<SermonNote[]>(
+    "/api/sermon-notes",
+    fetcher
+  );
 
   async function createNote() {
     setCreating(true);
@@ -92,7 +95,20 @@ export default function SermonNotesPage() {
         </div>
       )}
 
-      {!isLoading && (!notes || notes.length === 0) && (
+      {!isLoading && error && (
+        <EmptyState
+          icon={NotebookPen}
+          title="Couldn't load your notes"
+          hint="Check your connection and try again."
+          action={
+            <Button variant="outline" size="sm" onClick={() => mutate()}>
+              Retry
+            </Button>
+          }
+        />
+      )}
+
+      {!isLoading && !error && (!notes || notes.length === 0) && (
         <EmptyState
           icon={NotebookPen}
           title="No sermon notes yet"
