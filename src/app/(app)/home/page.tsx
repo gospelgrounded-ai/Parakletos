@@ -5,13 +5,29 @@ import Link from "next/link";
 import StreakWidget from "@/components/streak/StreakWidget";
 import VerseOfTheDayCard from "@/components/home/VerseOfTheDayCard";
 import { getVerseOfTheDay } from "@/lib/votd";
-import { BookOpen, Calendar, Bookmark, ArrowRight, Flame, HandHeart, Brain } from "lucide-react";
+import {
+  BookOpen,
+  Calendar,
+  Bookmark,
+  ArrowRight,
+  Search,
+  HandHeart,
+  Brain,
+  Sun,
+} from "lucide-react";
+
+interface TodayAction {
+  href: string;
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+}
 
 export default async function HomePage() {
   const session = await auth();
   const userId = session!.user!.id!;
 
-  // Fetch reading progress, active plan, streak, and memory-verse due count in parallel
+  // Fetch reading progress, active plans, streak, and memory-verse due count in parallel
   const [progress, enrollments, dueMemoryCount] = await Promise.all([
     db.readingProgress.findUnique({ where: { userId } }),
     db.planEnrollment.findMany({
@@ -31,6 +47,76 @@ export default async function HomePage() {
 
   const bookInfo = progress ? getBook(progress.book) : null;
   const firstName = session!.user!.name?.split(" ")[0] ?? "friend";
+  const translation = progress?.translation ?? "KJV";
+
+  // ── "Today" actions — the page's single priority ──────────────────────────
+  const todayActions: TodayAction[] = [];
+
+  if (progress && bookInfo) {
+    todayActions.push({
+      href: `/bible/${progress.translation}/${progress.book}/${progress.chapter}`,
+      icon: <BookOpen className="h-5 w-5 text-primary" />,
+      title: `Continue reading ${bookInfo.name} ${progress.chapter}`,
+      subtitle: progress.translation,
+    });
+  }
+
+  // Today's passage for the most recent active plan — deep-link straight to it
+  const currentEnrollment = enrollments[0];
+  if (currentEnrollment) {
+    let planHref = `/plans/${currentEnrollment.planId}`;
+    let planSubtitle = `Day ${currentEnrollment.currentDay} of ${currentEnrollment.plan.totalDays}`;
+    const planDay = await db.planDay
+      .findUnique({
+        where: {
+          planId_dayNumber: {
+            planId: currentEnrollment.planId,
+            dayNumber: currentEnrollment.currentDay,
+          },
+        },
+        select: { passages: true },
+      })
+      .catch(() => null);
+    if (planDay) {
+      try {
+        const passages: Array<{ book: number; chapter: number }> = JSON.parse(
+          planDay.passages
+        );
+        const first = Array.isArray(passages) ? passages[0] : undefined;
+        if (first) {
+          planHref = `/bible/${translation}/${first.book}/${first.chapter}?planId=${currentEnrollment.planId}&day=${currentEnrollment.currentDay}&passage=0`;
+          const b = getBook(first.book);
+          planSubtitle = `Day ${currentEnrollment.currentDay}: ${b?.name ?? ""} ${first.chapter}`;
+        }
+      } catch {
+        // malformed passages — fall back to the plan page link
+      }
+    }
+    todayActions.push({
+      href: planHref,
+      icon: <Calendar className="h-5 w-5 text-primary" />,
+      title: `Read today's passage — ${currentEnrollment.plan.title}`,
+      subtitle: planSubtitle,
+    });
+  }
+
+  if (dueMemoryCount > 0) {
+    todayActions.push({
+      href: "/memorize",
+      icon: <Brain className="h-5 w-5 text-primary" />,
+      title: `Review ${dueMemoryCount} memory verse${dueMemoryCount === 1 ? "" : "s"}`,
+      subtitle: "Keep the Word hidden in your heart",
+    });
+  }
+
+  if (todayActions.length === 0) {
+    todayActions.push({
+      href: `/bible/${translation}/43/1`,
+      icon: <BookOpen className="h-5 w-5 text-primary" />,
+      title: "Start reading — John 1",
+      subtitle: translation,
+    });
+  }
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 pb-28 lg:pb-10 space-y-6">
@@ -48,6 +134,34 @@ export default async function HomePage() {
         </p>
       </div>
 
+      {/* Today — the page's one primary card */}
+      <section>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-1.5">
+          <Sun className="h-3.5 w-3.5" />
+          Today
+        </h2>
+        <div className="rounded-xl border-2 border-primary/20 bg-card divide-y overflow-hidden">
+          {todayActions.map((action) => (
+            <Link
+              key={action.href}
+              href={action.href}
+              className="flex items-center gap-4 p-4 min-h-[56px] hover:bg-muted/50 transition-colors group"
+            >
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                {action.icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm truncate">{action.title}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                  {action.subtitle}
+                </p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+            </Link>
+          ))}
+        </div>
+      </section>
+
       {/* Verse of the Day */}
       {votd && (
         <VerseOfTheDayCard
@@ -56,41 +170,15 @@ export default async function HomePage() {
           verse={votd.verse}
           reference={votd.reference}
           text={votd.text}
-          translation={progress?.translation ?? "KJV"}
+          translation={translation}
         />
       )}
 
-      {/* Streak widget — client component */}
+      {/* Streak — status, not action; compact by design */}
       <StreakWidget />
 
-      {/* Continue reading */}
-      {progress && bookInfo && (
-        <section>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-            Continue Reading
-          </h2>
-          <Link
-            href={`/bible/${progress.translation}/${progress.book}/${progress.chapter}`}
-            className="flex items-center gap-4 rounded-xl border bg-card p-4 hover:bg-muted/50 transition-colors group"
-          >
-            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <BookOpen className="h-5 w-5 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold truncate">
-                {bookInfo.name} {progress.chapter}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {progress.translation}
-              </p>
-            </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
-          </Link>
-        </section>
-      )}
-
-      {/* Active reading plans */}
-      {enrollments.length > 0 && (
+      {/* Active reading plans — only when the Today card can't cover them all */}
+      {enrollments.length > 1 && (
         <section>
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
             Active Plans
@@ -147,10 +235,17 @@ export default async function HomePage() {
         </h2>
         <div className="grid grid-cols-2 gap-3">
           <Link
-            href="/search"
+            href="/bible"
             className="flex items-center gap-3 rounded-xl border bg-card p-4 hover:bg-muted/50 transition-colors"
           >
             <BookOpen className="h-5 w-5 text-primary shrink-0" />
+            <span className="text-sm font-medium">Open Bible</span>
+          </Link>
+          <Link
+            href="/search"
+            className="flex items-center gap-3 rounded-xl border bg-card p-4 hover:bg-muted/50 transition-colors"
+          >
+            <Search className="h-5 w-5 text-primary shrink-0" />
             <span className="text-sm font-medium">Search Scripture</span>
           </Link>
           <Link
@@ -166,13 +261,6 @@ export default async function HomePage() {
           >
             <Calendar className="h-5 w-5 text-primary shrink-0" />
             <span className="text-sm font-medium">Reading Plans</span>
-          </Link>
-          <Link
-            href="/bible"
-            className="flex items-center gap-3 rounded-xl border bg-card p-4 hover:bg-muted/50 transition-colors"
-          >
-            <Flame className="h-5 w-5 text-primary shrink-0" />
-            <span className="text-sm font-medium">Open Bible</span>
           </Link>
           <Link
             href="/prayer"

@@ -195,8 +195,13 @@ export default function SermonNoteEditor({ note }: Props) {
             </div>
           </div>
 
-          {/* Audio recorder */}
-          <AudioRecorder />
+          {/* Audio recorder — download-only; recordings are not stored with the note */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">
+              Record &amp; download (audio isn&apos;t saved with the note)
+            </Label>
+            <AudioRecorder />
+          </div>
 
           {/* Notes */}
           <div className="space-y-1.5">
@@ -217,7 +222,7 @@ export default function SermonNoteEditor({ note }: Props) {
               placeholder={
                 "Type your sermon notes here…\n\nScripture references like John 3:16 or Romans 8 will be automatically detected."
               }
-              className="min-h-[200px] sm:min-h-[420px] resize-y font-mono text-sm leading-relaxed"
+              className="min-h-[200px] sm:min-h-[420px] resize-y font-sans text-sm leading-relaxed"
             />
           </div>
         </div>

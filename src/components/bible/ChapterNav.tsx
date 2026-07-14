@@ -64,7 +64,13 @@ interface FlatPassage {
 function flattenPlan(days: PlanDay[]): FlatPassage[] {
   const result: FlatPassage[] = [];
   for (const day of days) {
-    const passages: PlanPassage[] = JSON.parse(day.passages);
+    let passages: PlanPassage[];
+    try {
+      passages = JSON.parse(day.passages);
+      if (!Array.isArray(passages)) continue;
+    } catch {
+      continue; // skip a malformed day rather than crash the reader
+    }
     passages.forEach((p, i) =>
       result.push({ day: day.dayNumber, passageIdx: i, book: p.book, chapter: p.chapter })
     );

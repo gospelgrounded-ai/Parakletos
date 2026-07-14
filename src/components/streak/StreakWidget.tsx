@@ -69,8 +69,8 @@ export default function StreakWidget() {
 
   if (!data) {
     return (
-      <div className="rounded-xl border bg-card p-5 space-y-4 animate-pulse">
-        <div className="h-14 bg-muted rounded-xl" />
+      <div className="rounded-xl border bg-card p-4 space-y-3 animate-pulse">
+        <div className="h-5 bg-muted rounded" />
         <div className="h-28 bg-muted rounded-xl" />
       </div>
     );
@@ -82,66 +82,38 @@ export default function StreakWidget() {
 
   return (
     <div className="rounded-xl border bg-card overflow-hidden">
-      {/* Streak hero */}
-      <div
-        className={cn(
-          "px-5 py-5 flex items-center gap-4",
-          readToday
-            ? "bg-gradient-to-r from-orange-500/10 to-amber-400/10"
-            : "bg-gradient-to-r from-muted/50 to-muted/20"
-        )}
-      >
-        <div
+      {/* Compact streak row — status, not the page's hero */}
+      <div className="px-4 py-3 flex items-center gap-3">
+        <Flame
           className={cn(
-            "h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 text-3xl",
-            readToday ? "bg-orange-500/15" : "bg-muted"
+            "h-5 w-5 shrink-0",
+            currentStreak > 0
+              ? readToday
+                ? "text-orange-500"
+                : "text-orange-400/60"
+              : "text-muted-foreground/40"
           )}
-        >
-          {currentStreak > 0 ? (
-            <Flame
-              className={cn(
-                "h-7 w-7",
-                readToday ? "text-orange-500" : "text-orange-400/60"
-              )}
-              strokeWidth={2}
-            />
-          ) : (
-            <Flame className="h-7 w-7 text-muted-foreground/40" strokeWidth={1.5} />
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <p className="text-3xl font-bold leading-none">
-            {currentStreak}
-            <span className="text-base font-normal text-muted-foreground ml-1">
-              day streak
-            </span>
-          </p>
-          <p className="text-sm text-muted-foreground mt-1">
+          strokeWidth={2}
+        />
+        <p className="text-sm font-semibold">
+          {currentStreak}-day streak
+          <span className="font-normal text-muted-foreground ml-2">
             {readToday
-              ? "You've read today — keep it going!"
+              ? "You've read today"
               : currentStreak > 0
-              ? "Read today to continue your streak"
-              : "Start a streak by reading today"}
-          </p>
-        </div>
-      </div>
-
-      {/* Stats row */}
-      <div className="grid grid-cols-2 divide-x border-t">
-        <div className="flex items-center gap-3 px-5 py-3">
-          <Trophy className="h-4 w-4 text-amber-500 shrink-0" />
-          <div>
-            <p className="text-xs text-muted-foreground">Longest streak</p>
-            <p className="font-semibold text-sm">{longestStreak} days</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 px-5 py-3">
-          <CalendarDays className="h-4 w-4 text-primary shrink-0" />
-          <div>
-            <p className="text-xs text-muted-foreground">Total days read</p>
-            <p className="font-semibold text-sm">{totalDays} days</p>
-          </div>
+              ? "Read today to keep it going"
+              : "Start by reading today"}
+          </span>
+        </p>
+        <div className="ml-auto flex items-center gap-4 text-xs text-muted-foreground shrink-0">
+          <span className="flex items-center gap-1" title="Longest streak">
+            <Trophy className="h-3.5 w-3.5 text-amber-500" />
+            {longestStreak}
+          </span>
+          <span className="flex items-center gap-1" title="Total days read">
+            <CalendarDays className="h-3.5 w-3.5 text-primary" />
+            {totalDays}
+          </span>
         </div>
       </div>
 

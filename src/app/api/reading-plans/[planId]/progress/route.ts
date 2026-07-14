@@ -71,6 +71,8 @@ export async function POST(
     const { planId } = await params;
     const body = await request.json();
     const { dayNumber } = body;
+    // completed: false un-marks the day; anything else (or absent) marks it
+    const completed: boolean = body.completed !== false;
 
     if (!dayNumber || typeof dayNumber !== "number" || dayNumber < 1) {
       return NextResponse.json(
@@ -107,12 +109,16 @@ export async function POST(
       : [];
 
     const completedSet = new Set(existingDays);
-    completedSet.add(dayNumber);
+    if (completed) {
+      completedSet.add(dayNumber);
+    } else {
+      completedSet.delete(dayNumber);
+    }
     const completedDaysStr = Array.from(completedSet).sort((a, b) => a - b).join(",");
 
-    // Advance currentDay to the next uncompleted day, or keep at last day if done
+    // currentDay = first uncompleted day (capped at the last day)
     const totalDays = enrollment.plan.totalDays;
-    let nextDay = dayNumber + 1;
+    let nextDay = 1;
     while (completedSet.has(nextDay) && nextDay <= totalDays) {
       nextDay++;
     }

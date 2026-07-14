@@ -40,6 +40,18 @@ export default function SermonNotesPage() {
   async function createNote() {
     setCreating(true);
     try {
+      // Reuse an abandoned blank note instead of accumulating ghosts
+      const blank = (notes ?? []).find(
+        (n) =>
+          (!n.title || n.title === "Untitled Sermon") &&
+          !n.speaker &&
+          !n.location &&
+          !n.notes
+      );
+      if (blank) {
+        router.push(`/sermon-notes/${blank.id}`);
+        return;
+      }
       const res = await fetch("/api/sermon-notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

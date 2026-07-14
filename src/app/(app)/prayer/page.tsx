@@ -88,6 +88,14 @@ export default function PrayerJournalPage() {
   async function createEntry() {
     setCreating(true);
     try {
+      // Reuse an abandoned blank entry instead of accumulating ghosts
+      const blank = (entries ?? []).find(
+        (e) => !e.title && !e.content && !e.isAnswered
+      );
+      if (blank) {
+        router.push(`/prayer/${blank.id}`);
+        return;
+      }
       const res = await fetch("/api/prayer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -34,8 +34,8 @@ export default function AudioRecorder({ onRecordingChange }: Props) {
   const [supported, setSupported] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [playError, setPlayError] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -78,8 +78,8 @@ export default function AudioRecorder({ onRecordingChange }: Props) {
       blobRef.current = b;
       const url = URL.createObjectURL(b);
       audioUrlRef.current = url;
-      setAudioUrl(url);
       setPlayError(false);
+      setDownloaded(false);
       onRecordingChange?.(b);
       setRecState("stopped");
     };
@@ -103,7 +103,6 @@ export default function AudioRecorder({ onRecordingChange }: Props) {
     const url = audioUrlRef.current;
     if (url) URL.revokeObjectURL(url);
     audioUrlRef.current = null;
-    setAudioUrl(null);
     blobRef.current = null;
     setElapsed(0);
     setIsPlaying(false);
@@ -154,6 +153,7 @@ export default function AudioRecorder({ onRecordingChange }: Props) {
     a.href = url;
     a.download = `sermon-audio.${ext(mimeTypeRef.current)}`;
     a.click();
+    setDownloaded(true);
   }
 
   useEffect(() => {
@@ -164,6 +164,17 @@ export default function AudioRecorder({ onRecordingChange }: Props) {
       if (url) URL.revokeObjectURL(url);
     };
   }, [clearTimer]);
+
+  // Recordings only live in this tab — warn before a hard exit loses one
+  const hasUnsavedRecording = recState === "stopped" && !downloaded;
+  useEffect(() => {
+    if (!hasUnsavedRecording) return;
+    function warn(e: BeforeUnloadEvent) {
+      e.preventDefault();
+    }
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [hasUnsavedRecording]);
 
   if (!supported) return null;
 
@@ -204,6 +215,11 @@ export default function AudioRecorder({ onRecordingChange }: Props) {
           <span className="text-sm text-muted-foreground tabular-nums">{fmt(elapsed)}</span>
           {playError && (
             <span className="text-xs text-destructive">Playback failed</span>
+          )}
+          {hasUnsavedRecording && (
+            <span className="text-xs text-muted-foreground">
+              Download to keep it — recordings aren&apos;t saved with the note
+            </span>
           )}
           <Button
             size="icon"

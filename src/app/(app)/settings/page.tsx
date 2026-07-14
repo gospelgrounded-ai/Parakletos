@@ -1,12 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
 import { signOut, useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Check, Save, Download, Trash2 } from "lucide-react";
+import { Check, Download, Trash2 } from "lucide-react";
 import { useTranslations } from "@/hooks/useTranslations";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   type ParakletosSettings,
   type ThemePref,
@@ -29,7 +36,7 @@ import {
 } from "@/components/ui/dialog";
 
 const FONT_FAMILIES = [
-  { value: "serif", label: "Serif (Georgia)" },
+  { value: "serif", label: "Serif (Lora)" },
   { value: "sans", label: "Sans-serif (System)" },
 ] as const;
 
@@ -80,16 +87,26 @@ export default function SettingsPage() {
       .catch(() => {});
   }, []);
 
-  function handleSave() {
-    saveLocalSettings(settings);
-    if (status === "authenticated") pushDbSettings(settings);
+  // Every change applies and persists immediately — there is no Save button.
+  // DB writes are debounced so slider drags don't spam the API.
+  const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function updateSettings(patch: Partial<ParakletosSettings>) {
+    const next = { ...settings, ...patch };
+    setSettings(next);
+    saveLocalSettings(next);
+    if (status === "authenticated") {
+      if (pushTimer.current) clearTimeout(pushTimer.current);
+      pushTimer.current = setTimeout(() => pushDbSettings(next), 600);
+    }
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setSaved(false), 2000);
   }
 
   function handleThemeChange(value: ThemePref) {
     setTheme(value);
-    setSettings((s) => ({ ...s, theme: value }));
+    updateSettings({ theme: value });
   }
 
   async function handleExport() {
@@ -139,7 +156,19 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 pb-24 lg:pb-8">
-      <h1 className="text-2xl font-bold mb-8">Settings</h1>
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-2xl font-bold">Settings</h1>
+        <span
+          aria-live="polite"
+          className={cn(
+            "flex items-center gap-1.5 text-sm font-medium text-success transition-opacity",
+            saved ? "opacity-100" : "opacity-0"
+          )}
+        >
+          <Check className="h-4 w-4" />
+          Saved
+        </span>
+      </div>
 
       <div className="space-y-8">
         {/* Reading experience */}
@@ -168,12 +197,7 @@ export default function SettingsPage() {
                 max={MAX_FONT_SIZE}
                 step={FONT_SIZE_STEP}
                 value={settings.fontSize}
-                onChange={(e) =>
-                  setSettings((s) => ({
-                    ...s,
-                    fontSize: Number(e.target.value),
-                  }))
-                }
+                onChange={(e) => updateSettings({ fontSize: Number(e.target.value) })}
                 className="w-full sm:w-48 accent-primary"
               />
             </div>
@@ -183,26 +207,23 @@ export default function SettingsPage() {
               <label htmlFor="font-family" className="text-sm font-medium">
                 Font Family
               </label>
-              <select
-                id="font-family"
+              <Select
                 value={settings.fontFamily}
-                onChange={(e) =>
-                  setSettings((s) => ({
-                    ...s,
-                    fontFamily: e.target.value as ParakletosSettings["fontFamily"],
-                  }))
+                onValueChange={(v) =>
+                  updateSettings({ fontFamily: v as ParakletosSettings["fontFamily"] })
                 }
-                className={cn(
-                  "rounded-md border bg-background px-3 py-2 text-sm",
-                  "focus:outline-none focus:ring-2 focus:ring-primary/50"
-                )}
               >
-                {FONT_FAMILIES.map(({ value, label }) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="font-family" className="w-[200px]" aria-label="Font family">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FONT_FAMILIES.map(({ value, label }) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Default translation */}
@@ -213,26 +234,26 @@ export default function SettingsPage() {
               >
                 Default Translation
               </label>
-              <select
-                id="default-translation"
+              <Select
                 value={settings.defaultTranslation}
-                onChange={(e) =>
-                  setSettings((s) => ({
-                    ...s,
-                    defaultTranslation: e.target.value,
-                  }))
-                }
-                className={cn(
-                  "rounded-md border bg-background px-3 py-2 text-sm",
-                  "focus:outline-none focus:ring-2 focus:ring-primary/50"
-                )}
+                onValueChange={(v) => updateSettings({ defaultTranslation: v })}
               >
-                {availableTranslations.map(({ short_name, full_name }) => (
-                  <option key={short_name} value={short_name}>
-                    {short_name} – {full_name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger
+                  id="default-translation"
+                  className="w-[200px]"
+                  aria-label="Default translation"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-[320px]">
+                  {availableTranslations.map(({ short_name, full_name }) => (
+                    <SelectItem key={short_name} value={short_name}>
+                      <span className="font-semibold">{short_name}</span>
+                      <span className="ml-2 text-muted-foreground text-xs">{full_name}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </section>
@@ -290,29 +311,6 @@ export default function SettingsPage() {
             </p>
           </div>
         </section>
-
-        {/* Save button */}
-        <button
-          onClick={handleSave}
-          className={cn(
-            "w-full sm:w-auto flex items-center justify-center gap-2 rounded-lg px-6 py-2.5 text-sm font-medium transition-colors",
-            saved
-              ? "bg-green-600 text-white"
-              : "bg-primary text-primary-foreground hover:bg-primary/90"
-          )}
-        >
-          {saved ? (
-            <>
-              <Check className="h-4 w-4" />
-              Saved
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4" />
-              Save Settings
-            </>
-          )}
-        </button>
 
         {/* Account */}
         <section className="space-y-5">

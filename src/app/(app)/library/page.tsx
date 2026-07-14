@@ -1,15 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
+import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import EmptyState from "@/components/shared/EmptyState";
 import { cn } from "@/lib/utils";
 import { HighlightColor, getHighlightClass } from "@/types";
 import Link from "next/link";
-import { Bookmark, FileText, Search, Highlighter, NotebookPen, ArrowRight } from "lucide-react";
+import {
+  Bookmark, FileText, Search, Highlighter, NotebookPen, ArrowRight, Trash2, Check,
+} from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -103,9 +107,48 @@ function BookGroup({
   );
 }
 
+function DeleteButton({ onConfirm, label }: { onConfirm: () => void; label: string }) {
+  const [confirming, setConfirming] = useState(false);
+  // Confirm state auto-expires so a stray first tap doesn't arm it forever
+  useEffect(() => {
+    if (!confirming) return;
+    const t = setTimeout(() => setConfirming(false), 3000);
+    return () => clearTimeout(t);
+  }, [confirming]);
+  return (
+    <button
+      onClick={() => {
+        if (confirming) {
+          onConfirm();
+          setConfirming(false);
+        } else {
+          setConfirming(true);
+        }
+      }}
+      aria-label={confirming ? `Confirm delete ${label}` : `Delete ${label}`}
+      className={cn(
+        "shrink-0 min-w-[44px] rounded-lg border transition-colors flex items-center justify-center",
+        confirming
+          ? "bg-destructive text-destructive-foreground border-destructive"
+          : "text-muted-foreground hover:text-destructive hover:border-destructive/40"
+      )}
+    >
+      {confirming ? <Check className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
+    </button>
+  );
+}
+
 // ─── Tabs ───────────────────────────────────────────────────────────────────
 
-function HighlightsTab({ data, query }: { data: HighlightEntry[]; query: string }) {
+function HighlightsTab({
+  data,
+  query,
+  onDelete,
+}: {
+  data: HighlightEntry[];
+  query: string;
+  onDelete: (e: HighlightEntry) => void;
+}) {
   const router = useRouter();
   const filtered = useMemo(
     () =>
@@ -135,12 +178,12 @@ function HighlightsTab({ data, query }: { data: HighlightEntry[]; query: string 
       {groupByBook(filtered).map(([bookName, items]) => (
         <BookGroup key={bookName} bookName={bookName} count={items.length}>
           {items.map((h) => (
-            <li key={h.id}>
+            <li key={h.id} className="flex items-stretch gap-1.5">
               <button
                 onClick={() =>
                   router.push(`/bible/${h.translation}/${h.book}/${h.chapter}#v${h.verse}`)
                 }
-                className="w-full text-left rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                className="flex-1 min-w-0 text-left rounded-lg border p-3 hover:bg-muted/50 transition-colors"
               >
                 <div className="flex items-center gap-2 mb-1">
                   {colorDot(h.color)}
@@ -153,6 +196,7 @@ function HighlightsTab({ data, query }: { data: HighlightEntry[]; query: string 
                   </p>
                 )}
               </button>
+              <DeleteButton label="highlight" onConfirm={() => onDelete(h)} />
             </li>
           ))}
         </BookGroup>
@@ -161,7 +205,15 @@ function HighlightsTab({ data, query }: { data: HighlightEntry[]; query: string 
   );
 }
 
-function BookmarksTab({ data, query }: { data: BookmarkEntry[]; query: string }) {
+function BookmarksTab({
+  data,
+  query,
+  onDelete,
+}: {
+  data: BookmarkEntry[];
+  query: string;
+  onDelete: (e: BookmarkEntry) => void;
+}) {
   const router = useRouter();
   const filtered = useMemo(
     () =>
@@ -192,12 +244,12 @@ function BookmarksTab({ data, query }: { data: BookmarkEntry[]; query: string })
       {groupByBook(filtered).map(([bookName, items]) => (
         <BookGroup key={bookName} bookName={bookName} count={items.length}>
           {items.map((b) => (
-            <li key={b.id}>
+            <li key={b.id} className="flex items-stretch gap-1.5">
               <button
                 onClick={() =>
                   router.push(`/bible/${b.translation}/${b.book}/${b.chapter}#v${b.verse}`)
                 }
-                className="w-full text-left rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                className="flex-1 min-w-0 text-left rounded-lg border p-3 hover:bg-muted/50 transition-colors"
               >
                 <div className="flex items-center gap-2 mb-1">
                   <Bookmark className="h-4 w-4 text-primary shrink-0" />
@@ -213,6 +265,7 @@ function BookmarksTab({ data, query }: { data: BookmarkEntry[]; query: string })
                   <p className="text-xs text-primary/80 mt-1 ml-6">{b.label}</p>
                 )}
               </button>
+              <DeleteButton label="bookmark" onConfirm={() => onDelete(b)} />
             </li>
           ))}
         </BookGroup>
@@ -221,7 +274,15 @@ function BookmarksTab({ data, query }: { data: BookmarkEntry[]; query: string })
   );
 }
 
-function NotesTab({ data, query }: { data: NoteEntry[]; query: string }) {
+function NotesTab({
+  data,
+  query,
+  onDelete,
+}: {
+  data: NoteEntry[];
+  query: string;
+  onDelete: (e: NoteEntry) => void;
+}) {
   const router = useRouter();
   const filtered = useMemo(
     () =>
@@ -252,12 +313,12 @@ function NotesTab({ data, query }: { data: NoteEntry[]; query: string }) {
       {groupByBook(filtered).map(([bookName, items]) => (
         <BookGroup key={bookName} bookName={bookName} count={items.length}>
           {items.map((n) => (
-            <li key={n.id}>
+            <li key={n.id} className="flex items-stretch gap-1.5">
               <button
                 onClick={() =>
                   router.push(`/bible/${n.translation}/${n.book}/${n.chapter}#v${n.verse}`)
                 }
-                className="w-full text-left rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                className="flex-1 min-w-0 text-left rounded-lg border p-3 hover:bg-muted/50 transition-colors"
               >
                 <div className="flex items-center gap-2 mb-1">
                   <FileText className="h-4 w-4 text-primary shrink-0" />
@@ -271,6 +332,7 @@ function NotesTab({ data, query }: { data: NoteEntry[]; query: string }) {
                 )}
                 <p className="text-sm ml-6 line-clamp-3 whitespace-pre-wrap">{n.content}</p>
               </button>
+              <DeleteButton label="note" onConfirm={() => onDelete(n)} />
             </li>
           ))}
         </BookGroup>
@@ -284,7 +346,18 @@ function NotesTab({ data, query }: { data: NoteEntry[]; query: string }) {
 export default function LibraryPage() {
   const [search, setSearch] = useState("");
   const query = search.trim().toLowerCase();
-  const { data, isLoading } = useSWR<StudyData>("/api/user/study", fetcher);
+  const { data, isLoading, mutate } = useSWR<StudyData>("/api/user/study", fetcher);
+
+  async function handleDelete(url: string, what: string) {
+    try {
+      const res = await fetch(url, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      toast.success(`${what} removed`);
+      mutate();
+    } catch {
+      toast.error(`Failed to remove ${what.toLowerCase()}`);
+    }
+  }
 
   const highlights = data?.highlights ?? [];
   const bookmarks = data?.bookmarks ?? [];
@@ -297,11 +370,11 @@ export default function LibraryPage() {
       {/* Search */}
       <div className="relative mb-6">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input
+        <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search your highlights, notes, and references…"
-          className="w-full rounded-lg border bg-background pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          className="pl-9"
         />
       </div>
 
@@ -321,13 +394,30 @@ export default function LibraryPage() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="highlights">
-            <HighlightsTab data={highlights} query={query} />
+            <HighlightsTab
+              data={highlights}
+              query={query}
+              onDelete={(h) =>
+                handleDelete(
+                  `/api/user/highlights?translation=${encodeURIComponent(h.translation)}&book=${h.book}&chapter=${h.chapter}&verse=${h.verse}`,
+                  "Highlight"
+                )
+              }
+            />
           </TabsContent>
           <TabsContent value="bookmarks">
-            <BookmarksTab data={bookmarks} query={query} />
+            <BookmarksTab
+              data={bookmarks}
+              query={query}
+              onDelete={(b) => handleDelete(`/api/user/bookmarks?id=${b.id}`, "Bookmark")}
+            />
           </TabsContent>
           <TabsContent value="notes">
-            <NotesTab data={notes} query={query} />
+            <NotesTab
+              data={notes}
+              query={query}
+              onDelete={(n) => handleDelete(`/api/user/notes?id=${n.id}`, "Note")}
+            />
           </TabsContent>
         </Tabs>
       )}

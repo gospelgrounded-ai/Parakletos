@@ -38,16 +38,22 @@ export default function PlanDetailPage({
   const translation: string = userSettings?.defaultTranslation || "KJV";
   const [justCompletedDay, setJustCompletedDay] = useState<number | null>(null);
 
-  async function markDayComplete(dayNumber: number) {
+  async function toggleDayComplete(dayNumber: number, completed: boolean) {
     try {
-      await fetch(`/api/reading-plans/${planId}/progress`, {
+      const res = await fetch(`/api/reading-plans/${planId}/progress`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dayNumber }),
+        body: JSON.stringify({ dayNumber, completed }),
       });
+      if (!res.ok) throw new Error();
       mutateProgress();
-      setJustCompletedDay(dayNumber);
-      toast.success(`Day ${dayNumber} marked complete!`);
+      if (completed) {
+        setJustCompletedDay(dayNumber);
+        toast.success(`Day ${dayNumber} marked complete!`);
+      } else {
+        setJustCompletedDay(null);
+        toast.success(`Day ${dayNumber} marked incomplete`);
+      }
     } catch {
       toast.error("Failed to update progress");
     }
@@ -63,7 +69,23 @@ export default function PlanDetailPage({
     );
   }
 
-  if (!plan) return null;
+  if (!plan || plan.error) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 text-center py-16">
+        <BookOpen className="h-10 w-10 mx-auto mb-3 opacity-20" />
+        <p className="text-sm font-medium">Couldn&apos;t load this plan</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Check your connection and try again.
+        </p>
+        <Link
+          href="/plans"
+          className="inline-block mt-4 text-sm text-primary font-medium hover:underline"
+        >
+          Back to Reading Plans
+        </Link>
+      </div>
+    );
+  }
 
   const completedDays = new Set<number>(progress?.completedDays ?? []);
   const currentDay: number = progress?.currentDay ?? 1;
@@ -101,7 +123,13 @@ export default function PlanDetailPage({
       {/* Day list */}
       <div className="space-y-2">
         {(plan.days as PlanDay[])?.map((day) => {
-          const passages: Passage[] = JSON.parse(day.passages);
+          let passages: Passage[];
+          try {
+            passages = JSON.parse(day.passages);
+            if (!Array.isArray(passages)) return null;
+          } catch {
+            return null; // skip a malformed day rather than white-screen
+          }
           const isComplete = completedDays.has(day.dayNumber);
           const isCurrent = day.dayNumber === currentDay;
           // First passage of this day — used for the "Start reading" button
@@ -118,9 +146,14 @@ export default function PlanDetailPage({
             >
               {/* Complete toggle */}
               <button
-                onClick={() => !isComplete && markDayComplete(day.dayNumber)}
-                className="mt-0.5 flex-shrink-0"
-                aria-label={isComplete ? `Day ${day.dayNumber} complete` : `Mark day ${day.dayNumber} complete`}
+                onClick={() => toggleDayComplete(day.dayNumber, !isComplete)}
+                className="mt-0.5 flex-shrink-0 p-2 -m-2"
+                aria-pressed={isComplete}
+                aria-label={
+                  isComplete
+                    ? `Un-mark day ${day.dayNumber} as complete`
+                    : `Mark day ${day.dayNumber} complete`
+                }
               >
                 {isComplete ? (
                   <CheckCircle2 className="h-5 w-5 text-success" />

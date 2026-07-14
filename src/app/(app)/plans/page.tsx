@@ -1,12 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import EmptyState from "@/components/shared/EmptyState";
 import ProgressBar from "@/components/shared/ProgressBar";
-import { BookOpen, CheckCircle2 } from "lucide-react";
+import { BookOpen, CheckCircle2, Loader2 } from "lucide-react";
 
 interface ReadingPlan {
   id: string;
@@ -61,19 +63,26 @@ function PlanProgress({
 
 function PlanCard({ plan }: { plan: ReadingPlan }) {
   const router = useRouter();
+  const [enrolling, setEnrolling] = useState(false);
   const isComplete =
     plan.enrolled && plan.currentDay !== null && plan.currentDay >= plan.totalDays;
 
-  function handleAction() {
+  async function handleAction() {
     if (!plan.enrolled) {
-      // Enroll then navigate
-      fetch("/api/reading-plans", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId: plan.id }),
-      }).then(() => {
+      if (enrolling) return;
+      setEnrolling(true);
+      try {
+        const res = await fetch("/api/reading-plans", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ planId: plan.id }),
+        });
+        if (!res.ok) throw new Error();
         router.push(`/plans/${plan.slug}`);
-      });
+      } catch {
+        toast.error("Couldn't start the plan — please try again");
+        setEnrolling(false);
+      }
     } else {
       router.push(`/plans/${plan.slug}`);
     }
@@ -116,10 +125,22 @@ function PlanCard({ plan }: { plan: ReadingPlan }) {
 
         <Button
           onClick={handleAction}
+          disabled={enrolling}
           variant={plan.enrolled ? "secondary" : "default"}
           className="mt-4 w-full"
         >
-          {isComplete ? "Review" : plan.enrolled ? "Continue" : "Start Plan"}
+          {enrolling ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Starting…
+            </>
+          ) : isComplete ? (
+            "Review"
+          ) : plan.enrolled ? (
+            "Continue"
+          ) : (
+            "Start Plan"
+          )}
         </Button>
       </div>
     </div>
@@ -133,6 +154,8 @@ export default function PlansPage() {
   );
 
   const plans = data?.plans ?? [];
+  const myPlans = plans.filter((p) => p.enrolled);
+  const browsePlans = plans.filter((p) => !p.enrolled);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 pb-24 lg:pb-8">
@@ -147,10 +170,34 @@ export default function PlansPage() {
       ) : plans.length === 0 ? (
         <EmptyState icon={BookOpen} title="No reading plans available yet" />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {plans.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} />
-          ))}
+        <div className="space-y-8">
+          {myPlans.length > 0 && (
+            <section>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+                My plans
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {myPlans.map((plan) => (
+                  <PlanCard key={plan.id} plan={plan} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {browsePlans.length > 0 && (
+            <section>
+              {myPlans.length > 0 && (
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+                  Browse plans
+                </h2>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {browsePlans.map((plan) => (
+                  <PlanCard key={plan.id} plan={plan} />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       )}
     </div>
