@@ -4,6 +4,7 @@ import { getBook } from "@/lib/bible-books";
 import Link from "next/link";
 import StreakWidget from "@/components/streak/StreakWidget";
 import VerseOfTheDayCard from "@/components/home/VerseOfTheDayCard";
+import GettingStartedCard from "@/components/home/GettingStartedCard";
 import { getVerseOfTheDay } from "@/lib/votd";
 import {
   BookOpen,
@@ -28,7 +29,7 @@ export default async function HomePage() {
   const userId = session!.user!.id!;
 
   // Fetch reading progress, active plans, streak, and memory-verse due count in parallel
-  const [progress, enrollments, dueMemoryCount] = await Promise.all([
+  const [progress, enrollments, dueMemoryCount, highlightCount] = await Promise.all([
     db.readingProgress.findUnique({ where: { userId } }),
     db.planEnrollment.findMany({
       where: { userId, completedAt: null },
@@ -41,6 +42,7 @@ export default async function HomePage() {
       take: 2,
     }),
     db.memoryVerse.count({ where: { userId, nextReview: { lte: new Date() } } }),
+    db.highlight.count({ where: { userId } }),
   ]);
 
   const votd = await getVerseOfTheDay(progress?.translation ?? "KJV");
@@ -134,33 +136,44 @@ export default async function HomePage() {
         </p>
       </div>
 
-      {/* Today — the page's one primary card */}
-      <section>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-1.5">
-          <Sun className="h-3.5 w-3.5" />
-          Today
-        </h2>
-        <div className="rounded-xl border-2 border-primary/20 bg-card divide-y overflow-hidden">
-          {todayActions.map((action) => (
-            <Link
-              key={action.href}
-              href={action.href}
-              className="flex items-center gap-4 p-4 min-h-[56px] hover:bg-muted/50 transition-colors group"
-            >
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                {action.icon}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm truncate">{action.title}</p>
-                <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                  {action.subtitle}
-                </p>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
-            </Link>
-          ))}
-        </div>
-      </section>
+      {/* Today — the page's one primary card. Brand-new accounts get the
+          Getting-started checklist here instead until they dismiss it. */}
+      {(() => {
+        const todaySection = (
+          <section>
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-1.5">
+              <Sun className="h-3.5 w-3.5" />
+              Today
+            </h2>
+            <div className="rounded-xl border-2 border-primary/20 bg-card divide-y overflow-hidden">
+              {todayActions.map((action) => (
+                <Link
+                  key={action.href}
+                  href={action.href}
+                  className="flex items-center gap-4 p-4 min-h-[56px] hover:bg-muted/50 transition-colors group"
+                >
+                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    {action.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate">{action.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      {action.subtitle}
+                    </p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+                </Link>
+              ))}
+            </div>
+          </section>
+        );
+        const isNewUser = !progress && enrollments.length === 0 && highlightCount === 0;
+        return isNewUser ? (
+          <GettingStartedCard fallback={todaySection} />
+        ) : (
+          todaySection
+        );
+      })()}
 
       {/* Verse of the Day */}
       {votd && (

@@ -61,7 +61,7 @@ export function RegisterForm() {
   async function handleGoogleSignUp() {
     try {
       setIsGoogleLoading(true)
-      await signIn("google", { callbackUrl: "/bible" })
+      await signIn("google", { callbackUrl: "/home" })
     } catch {
       toast.error("Failed to sign up with Google. Please try again.")
       setIsGoogleLoading(false)
@@ -101,7 +101,7 @@ export function RegisterForm() {
         return
       }
 
-      router.push("/bible")
+      router.push("/home")
       router.refresh()
     } catch {
       toast.error("Something went wrong. Please try again.")

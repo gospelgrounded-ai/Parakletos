@@ -14,43 +14,120 @@ export default async function LandingPage() {
             <BookOpen className="h-7 w-7 text-primary" />
             <span className="font-serif text-xl font-bold text-foreground">Parakletos</span>
           </div>
-          <Link
-            href="/login"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5"
-          >
-            Sign in
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/login"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/register"
+              className="text-sm bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors font-medium"
+            >
+              Create account
+            </Link>
+          </div>
         </div>
       </header>
 
       {/* Hero */}
-      <section className="max-w-6xl mx-auto px-4 py-24 text-center">
-        <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium mb-6">
-          <BookOpen className="h-4 w-4" />
-          Παράκλητος — The Helper
-        </div>
-        <h1 className="font-serif text-5xl md:text-7xl font-bold text-foreground mb-6 leading-tight">
-          Scripture, the way<br />
-          <span className="text-primary">it was meant</span> to be read.
-        </h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
-          The depth of a study Bible with the simplicity of a reading app. Multiple
-          translations, highlights, notes, cross-references, and reading plans — all in one place.
-        </p>
-        <div className="flex flex-col items-center gap-3">
-          <Link
-            href="/register"
-            className="bg-primary text-primary-foreground px-8 py-3.5 rounded-lg font-medium text-base hover:bg-primary/90 transition-colors"
-          >
-            Start reading for free
-          </Link>
-          <p className="text-xs text-muted-foreground">Free forever. No credit card required.</p>
-          <Link
-            href="/bible/KJV/43/1"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            or preview a chapter →
-          </Link>
+      <section className="max-w-6xl mx-auto px-4 py-16 lg:py-24">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          {/* Copy */}
+          <div className="text-center lg:text-left">
+            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium mb-6">
+              <BookOpen className="h-4 w-4" />
+              Παράκλητος — The Helper
+            </div>
+            <h1 className="font-serif text-4xl md:text-6xl font-bold text-foreground mb-6 leading-tight">
+              Scripture, the way{" "}
+              <span className="text-primary">it was meant</span> to be read.
+            </h1>
+            <p className="text-lg md:text-xl text-muted-foreground mb-10">
+              The depth of a study Bible with the simplicity of a reading app. Multiple
+              translations, highlights, notes, cross-references, and reading plans — all in
+              one place.
+            </p>
+            <div className="flex flex-col items-center lg:items-start gap-3">
+              <Link
+                href="/register"
+                className="bg-primary text-primary-foreground px-8 py-3.5 rounded-lg font-medium text-base hover:bg-primary/90 transition-colors"
+              >
+                Start reading for free
+              </Link>
+              <p className="text-xs text-muted-foreground">
+                Free forever. No credit card required.
+              </p>
+              <Link
+                href="/bible/KJV/43/1"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                or preview a chapter →
+              </Link>
+            </div>
+          </div>
+
+          {/* Product mockup — real markup styled like the reader, always in
+              sync with the design (no binary screenshots) */}
+          <div aria-hidden className="select-none">
+            <div className="rounded-2xl border shadow-xl overflow-hidden bg-card max-w-md mx-auto">
+              {/* Mock reader top bar */}
+              <div className="flex items-center justify-between px-4 py-2.5 border-b bg-background/95">
+                <span className="text-sm font-medium flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-primary/70" />
+                  John 1
+                </span>
+                <span className="text-[10px] font-semibold tracking-wide bg-muted rounded px-2 py-1 text-muted-foreground">
+                  KJV
+                </span>
+              </div>
+              {/* Mock verses on the reader's sepia background */}
+              <div
+                className="px-6 py-6 font-serif leading-loose text-[15px]"
+                style={{
+                  background: "hsl(var(--reader-bg))",
+                  color: "hsl(var(--reader-text))",
+                }}
+              >
+                <p className="mb-3">
+                  <sup className="text-[10px] font-sans font-semibold mr-1 opacity-50">1</sup>
+                  In the beginning was the Word, and the Word was with God, and the Word
+                  was God.
+                </p>
+                <p className="mb-3">
+                  <sup className="text-[10px] font-sans font-semibold mr-1 opacity-50">2</sup>
+                  The same was in the beginning with God.
+                </p>
+                <p>
+                  <sup className="text-[10px] font-sans font-semibold mr-1 opacity-50">3</sup>
+                  <mark className="bg-yellow-200/70 dark:bg-yellow-400/30 rounded-sm text-inherit">
+                    All things were made by him; and without him was not any thing made
+                    that was made.
+                  </mark>
+                </p>
+              </div>
+              {/* Mock actions bar */}
+              <div className="flex items-center justify-around px-4 py-2.5 border-t bg-card text-muted-foreground">
+                <span className="flex flex-col items-center gap-0.5 text-primary">
+                  <Highlighter className="h-4 w-4" />
+                  <span className="text-[9px] font-medium">Highlight</span>
+                </span>
+                <span className="flex flex-col items-center gap-0.5">
+                  <NotebookPen className="h-4 w-4" />
+                  <span className="text-[9px] font-medium">Note</span>
+                </span>
+                <span className="flex flex-col items-center gap-0.5">
+                  <Bookmark className="h-4 w-4" />
+                  <span className="text-[9px] font-medium">Bookmark</span>
+                </span>
+                <span className="flex flex-col items-center gap-0.5">
+                  <Search className="h-4 w-4" />
+                  <span className="text-[9px] font-medium">Study</span>
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
