@@ -1,6 +1,15 @@
-const CACHE_NAME = "parakletos-v1";
+// Bumped to force-clear any previously cache-first-stored responses below
+// (notably /api/bible/translations, which used to be wrongly cache-first —
+// see NETWORK_FIRST_PATHS).
+const CACHE_NAME = "parakletos-v2";
 const BIBLE_API_PREFIX = "/api/bible/";
 const READER_PREFIX = "/bible/";
+
+// The translations LIST changes — new Bibles get approved on api.bible,
+// Bolls updates its catalog, we ship code changes to it — unlike chapter
+// text, which is stable once published. Treat it as network-first instead
+// of lumping it into the blanket Bible-API cache-first rule below.
+const NETWORK_FIRST_PATHS = ["/api/bible/translations"];
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -23,8 +32,13 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   // Bible chapter text — cache-first, since chapter text rarely changes.
+  // The translations list is the one exception (see NETWORK_FIRST_PATHS).
   if (url.pathname.startsWith(BIBLE_API_PREFIX)) {
-    event.respondWith(cacheFirst(request));
+    if (NETWORK_FIRST_PATHS.includes(url.pathname)) {
+      event.respondWith(networkFirst(request));
+    } else {
+      event.respondWith(cacheFirst(request));
+    }
     return;
   }
 
