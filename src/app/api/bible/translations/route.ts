@@ -14,10 +14,14 @@ export async function GET() {
   // when the server had to fall back too.
   const { source, groups, stale } = await fetchPrimaryTranslations();
 
-  // Find the English group — identified by containing "KJV"
-  const englishGroup = groups.find((g) =>
-    g.translations.some((t) => t.short_name === "KJV")
-  );
+  // Find the English group — by language name first (works for both
+  // providers), falling back to the KJV-membership heuristic. The old
+  // KJV-only sentinel silently discarded api.bible's list, whose
+  // abbreviations ("engKJV") never matched, and substituted the hardcoded
+  // Bolls set.
+  const englishGroup =
+    groups.find((g) => /^english\b/i.test(g.language)) ??
+    groups.find((g) => g.translations.some((t) => t.short_name === "KJV"));
   const englishTranslations: BollsTranslation[] =
     englishGroup?.translations ?? FALLBACK_TRANSLATIONS;
 
@@ -35,8 +39,11 @@ export async function GET() {
     return a.short_name.localeCompare(b.short_name);
   });
 
+  const count =
+    sorted.length + otherGroups.reduce((n, g) => n + g.translations.length, 0);
+
   return NextResponse.json(
-    { source, english: sorted, groups: otherGroups },
+    { source, count, english: sorted, groups: otherGroups },
     {
       headers: {
         "Cache-Control": stale

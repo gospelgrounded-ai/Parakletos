@@ -219,7 +219,7 @@ export default async function LandingPage() {
             },
             {
               q: "Which Bible translations are included?",
-              a: "Over 80 translations, including KJV, NKJV, WEB, ASV, NET, and many more in multiple languages. All powered by the Bolls.life API.",
+              a: "Over 80 translations, including KJV, NKJV, WEB, ASV, NET, and many more in multiple languages, powered by API.Bible and Bolls.life.",
             },
             {
               q: "Do my highlights and notes sync across devices?",

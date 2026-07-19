@@ -145,7 +145,7 @@ function ChapterNavInner({
     if (params.has("parallel")) {
       params.delete("parallel");
     } else {
-      params.set("parallel", "NKJV");
+      params.set("parallel", "WEB");
     }
     const qs = params.toString();
     router.push(`/bible/${translation}/${book}/${chapter}${qs ? `?${qs}` : ""}`);

@@ -1,9 +1,10 @@
-import { cleanVerseText, type BollsVerse } from "@/lib/bible-api";
+import { cleanVerseText } from "@/lib/verse-text";
+import type { BollsSearchResult, BollsVerse } from "@/lib/bible-api";
 
 /**
- * api.bible (scripture.api.bible) provider — a second source of Bible text
- * layered alongside the default Bolls.life provider. Entirely optional: with
- * no API_BIBLE_KEY set, every export here is a silent no-op, matching how
+ * api.bible (scripture.api.bible) provider — the primary source of Bible
+ * text when API_BIBLE_KEY is set, with Bolls.life as fallback. Entirely
+ * optional: with no key, every export here is a silent no-op, matching how
  * ELEVENLABS_API_KEY/OPENAI_API_KEY are treated elsewhere in this app.
  *
  * Important: having a key does NOT grant access to every translation. Your
@@ -12,6 +13,10 @@ import { cleanVerseText, type BollsVerse } from "@/lib/bible-api";
  * translations like NIV/ESV require a separate publisher grant in your
  * api.bible dashboard). This module only ever surfaces whatever GET /bibles
  * actually returns for your key — nothing is hardcoded or assumed.
+ *
+ * Note on imports: only type-only imports from @/lib/bible-api are allowed
+ * here — a value import would pull in @/lib/db (Prisma at module load) and
+ * break this module's node-env unit tests.
  */
 
 const SCRIPTURE_API_BASE = "https://api.scripture.api.bible/v1";
@@ -32,11 +37,47 @@ const USFM_BY_BOOK_ID: Record<number, string> = {
   61: "2PE", 62: "1JN", 63: "2JN", 64: "3JN", 65: "JUD", 66: "REV",
 };
 
+export const USFM_TO_BOOK_ID: Record<string, number> = Object.fromEntries(
+  Object.entries(USFM_BY_BOOK_ID).map(([id, usfm]) => [usfm, Number(id)])
+);
+
 export interface ScriptureApiBible {
   id: string;
   abbreviation: string;
   name: string;
   language: string;
+}
+
+/**
+ * Turn an api.bible abbreviation into the short code shown in the UI and
+ * used in reader URLs. English abbreviations frequently carry an "eng"
+ * prefix ("engKJV", "engasv", "eng-web") that would read badly in the
+ * picker, share cards, and page titles — strip it (only for English, only
+ * when at least 2 characters remain), then uppercase. Non-English
+ * abbreviations pass through untouched apart from uppercasing.
+ */
+export function normalizeTranslationCode(abbreviation: string, language: string): string {
+  let code = abbreviation.trim();
+  if (/^english\b/i.test(language)) {
+    code = code.replace(/^eng[-_]?(?=[A-Za-z0-9]{2,}$)/i, "");
+  }
+  return code.toUpperCase();
+}
+
+/**
+ * Parse an api.bible verse id like "JHN.3.16" (or a range id like
+ * "JHN.3.16-JHN.3.18", which resolves to its first verse) into this app's
+ * numeric book/chapter/verse. Returns null for unmapped books (apocrypha)
+ * or unrecognized shapes.
+ */
+export function parseVerseId(
+  id: string
+): { book: number; chapter: number; verse: number } | null {
+  const m = /^([0-9A-Z]{3})\.(\d+)\.(\d+)/.exec(id.trim().toUpperCase());
+  if (!m) return null;
+  const book = USFM_TO_BOOK_ID[m[1]];
+  if (!book) return null;
+  return { book, chapter: parseInt(m[2], 10), verse: parseInt(m[3], 10) };
 }
 
 function apiKey(): string | undefined {
@@ -94,7 +135,7 @@ function isVerseMarker(attrs: string): boolean {
   return /\bclass="[^"]*\bv\b[^"]*"/.test(attrs);
 }
 
-function parseChapterHtml(html: string): BollsVerse[] {
+export function parseChapterHtml(html: string): BollsVerse[] {
   const markers: Array<{ index: number; end: number; verse: number }> = [];
   let m: RegExpExecArray | null;
   SPAN_RE.lastIndex = 0;
@@ -139,4 +180,55 @@ export async function fetchScriptureApiChapter(
   const json = await res.json();
   const html = typeof json?.data?.content === "string" ? json.data.content : "";
   return parseChapterHtml(html);
+}
+
+/**
+ * Search within one api.bible Bible. Maps the documented response
+ * (data.verses[], or data.passages[] for reference-style queries) into the
+ * app's search-result shape. Throws on an unrecognized shape or non-ok
+ * response so the caller can fall back to Bolls; a genuinely empty result
+ * returns [] without triggering that fallback.
+ */
+export async function searchScriptureApi(
+  bibleId: string,
+  query: string,
+  limit = 51
+): Promise<BollsSearchResult[]> {
+  const params = new URLSearchParams({ query, limit: String(limit) });
+  const res = await fetch(
+    `${SCRIPTURE_API_BASE}/bibles/${bibleId}/search?${params}`,
+    { headers: headers(), next: { revalidate: 3600 } }
+  );
+  if (!res.ok) throw new Error(`api.bible search failed: ${res.status}`);
+  const json = await res.json();
+  const data = json?.data as Record<string, unknown> | undefined;
+
+  const mapItems = (
+    items: unknown[],
+    textOf: (item: Record<string, unknown>) => string
+  ): BollsSearchResult[] =>
+    items
+      .map((raw): BollsSearchResult | null => {
+        const item = raw as Record<string, unknown>;
+        const ref = parseVerseId(typeof item.id === "string" ? item.id : "");
+        if (!ref) return null;
+        const text = cleanVerseText(textOf(item));
+        if (!text) return null;
+        return { ...ref, text };
+      })
+      .filter((r): r is BollsSearchResult => r !== null);
+
+  if (Array.isArray(data?.verses)) {
+    return mapItems(data.verses, (v) => (typeof v.text === "string" ? v.text : ""));
+  }
+  if (Array.isArray(data?.passages)) {
+    return mapItems(data.passages, (p) =>
+      typeof p.content === "string"
+        ? p.content
+        : typeof p.reference === "string"
+        ? p.reference
+        : ""
+    );
+  }
+  throw new Error("api.bible search: unrecognized response shape");
 }

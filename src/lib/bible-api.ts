@@ -1,9 +1,12 @@
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
+import { cleanVerseText } from "@/lib/verse-text";
 import {
   fetchScriptureApiBibles,
   fetchScriptureApiChapter,
   hasScriptureApiKey,
+  normalizeTranslationCode,
+  searchScriptureApi,
   type ScriptureApiBible,
 } from "@/lib/bible-api-scripture";
 
@@ -44,23 +47,10 @@ const FETCH_OPTIONS = {
   },
 } as const;
 
-/**
- * Some bolls.life translations (notably KJV and ASV) are served as the
- * Strong's-tagged variant, so verse text contains inline markup:
- *   - <S>1722</S>  Strong's concordance numbers
- *   - <sup>...</sup>  translator footnotes
- *   - <i>was</i>  italicized supplied words
- * Strip the numbers and notes, keep the readable words, tidy whitespace.
- */
-export function cleanVerseText(raw: string): string {
-  return raw
-    .replace(/<S>.*?<\/S>/g, "") // Strong's numbers (remove with content)
-    .replace(/<sup>.*?<\/sup>/g, "") // translator footnotes (remove with content)
-    .replace(/<[^>]+>/g, "") // any remaining tags (<i>, <b>, <br/>) — keep inner text
-    .replace(/\s+/g, " ") // collapse whitespace left behind
-    .replace(/\s+([,.;:!?’”)])/g, "$1") // tidy stray space before punctuation
-    .trim();
-}
+// Moved to the pure module so provider clients and tests can use it without
+// importing the Prisma-backed parts of this file; re-exported for the many
+// existing importers (and used below).
+export { cleanVerseText };
 
 export async function fetchTranslations(): Promise<BollsLanguageGroup[]> {
   const res = await fetch(
@@ -88,15 +78,23 @@ export async function fetchTranslations(): Promise<BollsLanguageGroup[]> {
 }
 
 function groupScriptureApiBibles(bibles: ScriptureApiBible[]): BollsLanguageGroup[] {
+  // Normalize abbreviations here — the one place api.bible Bibles become
+  // BollsTranslations — so the route, hook, picker, share cards, and page
+  // titles all see clean codes ("KJV", not "ENGKJV"). Dedupe by normalized
+  // code (keep first) since e.g. two KJV editions may collapse to one code.
   const groups: BollsLanguageGroup[] = [];
+  const seen = new Set<string>();
   for (const bible of bibles) {
+    const code = normalizeTranslationCode(bible.abbreviation, bible.language);
+    if (seen.has(code)) continue;
+    seen.add(code);
     let group = groups.find((g) => g.language === bible.language);
     if (!group) {
       group = { language: bible.language, translations: [] };
       groups.push(group);
     }
     group.translations.push({
-      short_name: bible.abbreviation,
+      short_name: code,
       full_name: bible.name,
       language: bible.language,
     });
@@ -137,15 +135,23 @@ export async function fetchPrimaryTranslations(): Promise<TranslationSourceResul
 
 /**
  * Resolve a translation code to an api.bible Bible id, if your key has
- * access to a Bible with that abbreviation. Returns null when API_BIBLE_KEY
- * isn't set, or the code isn't among the Bibles your key can see — in both
- * cases the caller falls back to Bolls.life.
+ * access to a Bible with that abbreviation. The requested code is matched
+ * against both the raw abbreviation ("ENGKJV") and its normalized form
+ * ("KJV" — what the picker/URLs use); an exact raw match wins when both
+ * exist. Returns null when API_BIBLE_KEY isn't set, or the code isn't
+ * among the Bibles your key can see — in both cases the caller falls back
+ * to Bolls.life.
  */
 async function resolveScriptureApiBibleId(translation: string): Promise<string | null> {
   if (!hasScriptureApiKey()) return null;
+  const requested = translation.toUpperCase();
   const bibles = await fetchScriptureApiBibles();
-  const match = bibles.find((b) => b.abbreviation.toUpperCase() === translation.toUpperCase());
-  return match?.id ?? null;
+  const rawMatch = bibles.find((b) => b.abbreviation.toUpperCase() === requested);
+  if (rawMatch) return rawMatch.id;
+  const normalizedMatch = bibles.find(
+    (b) => normalizeTranslationCode(b.abbreviation, b.language) === requested
+  );
+  return normalizedMatch?.id ?? null;
 }
 
 /**
@@ -153,26 +159,36 @@ async function resolveScriptureApiBibleId(translation: string): Promise<string |
  * so a later provider outage doesn't take down a chapter someone already
  * read. On failure, fall back to whatever we last cached (if anything).
  * Tries api.bible first when the translation code matches a Bible your
- * API_BIBLE_KEY has access to; otherwise uses Bolls.life as before.
+ * API_BIBLE_KEY has access to; a failed or empty api.bible fetch still
+ * falls through to Bolls.life before giving up — a code both providers
+ * carry (like KJV) should never dead-end on an api.bible hiccup.
  */
 export async function fetchChapter(
   translation: string,
   book: number,
   chapter: number
 ): Promise<BollsVerse[]> {
+  async function fetchFromBolls(): Promise<BollsVerse[]> {
+    const res = await fetch(
+      `${BOLLS_BASE}/get-text/${translation}/${book}/${chapter}/`,
+      FETCH_OPTIONS
+    );
+    if (!res.ok) throw new Error(`Failed to fetch ${translation} ${book}:${chapter}`);
+    const raw = (await res.json()) as BollsVerse[];
+    return raw.map((v) => ({ ...v, text: cleanVerseText(v.text) }));
+  }
+
   try {
     const scriptureApiBibleId = await resolveScriptureApiBibleId(translation);
-    const verses: BollsVerse[] = scriptureApiBibleId
-      ? await fetchScriptureApiChapter(scriptureApiBibleId, book, chapter)
-      : await (async () => {
-          const res = await fetch(
-            `${BOLLS_BASE}/get-text/${translation}/${book}/${chapter}/`,
-            FETCH_OPTIONS
-          );
-          if (!res.ok) throw new Error(`Failed to fetch ${translation} ${book}:${chapter}`);
-          const raw = (await res.json()) as BollsVerse[];
-          return raw.map((v) => ({ ...v, text: cleanVerseText(v.text) }));
-        })();
+    let verses: BollsVerse[] = [];
+    if (scriptureApiBibleId) {
+      verses = await fetchScriptureApiChapter(scriptureApiBibleId, book, chapter).catch(
+        () => []
+      );
+    }
+    if (verses.length === 0) {
+      verses = await fetchFromBolls();
+    }
     if (verses.length > 0) {
       const versesJson = verses as unknown as Prisma.InputJsonValue;
       await db.chapterCache
@@ -242,6 +258,17 @@ export async function searchBible(
   translation: string,
   query: string
 ): Promise<BollsSearchResult[]> {
+  // api.bible first when the code belongs to it; any failure there falls
+  // through to the Bolls path below.
+  const scriptureApiBibleId = await resolveScriptureApiBibleId(translation).catch(() => null);
+  if (scriptureApiBibleId) {
+    try {
+      return await searchScriptureApi(scriptureApiBibleId, query);
+    } catch {
+      // fall through to Bolls
+    }
+  }
+
   const encoded = encodeURIComponent(query);
   const res = await fetch(
     `${BOLLS_BASE}/search/${translation}/${encoded}/`,
@@ -282,12 +309,16 @@ export async function fetchBookList(
   }
 }
 
-// Ordered list of English translation codes to pin at the top of selectors.
-// Resolved against the live Bolls.life list when available; full names come
-// from FALLBACK_TRANSLATIONS below when the API is unreachable.
-// English translations to pin at the top of the selector (in display order).
+// Ordered list of English translation codes to pin at the top of selectors
+// (in display order). Resolved by intersection against the live list —
+// whichever provider supplied it — so codes the current source doesn't
+// carry simply don't appear. KJV stays first (the app default); modern
+// translations (available via api.bible once the publisher grants them to
+// your key, or via Bolls' live list) come right after.
 export const FEATURED_TRANSLATION_CODES = [
-  "KJV", "NKJV", "WEB", "ASV", "YLT", "BBE", "DBY", "WBS",
+  "KJV", "NIV", "ESV", "NLT", "CSB", "NASB", "AMP", "MSG",
+  "NKJV", "BSB", "WEB", "ASV", "FBV", "LSV",
+  "YLT", "BBE", "DBY", "WBS",
   "LITV", "MKJV", "NHEB", "RNKJV", "NMB", "TMB", "TYN", "WEBBE",
   "NET", "RV", "ISV", "AKJV", "KJ2000", "CKJV", "KJV1611", "LXXE",
 ];

@@ -85,8 +85,8 @@ export default async function BibleChapterPage({
         <h1 className="text-xl font-semibold">Translation unavailable</h1>
         <p className="text-muted-foreground max-w-sm text-sm">
           <strong>{translationUpper}</strong> could not be loaded for{" "}
-          {bookInfo.name} {chapterNum}. It may be temporarily unavailable on
-          Bolls.life, or the translation code may have changed.
+          {bookInfo.name} {chapterNum}. The translation source may be
+          temporarily unavailable, or the translation code may have changed.
         </p>
         <div className="flex gap-3 mt-2 flex-wrap justify-center">
           {suggestions.slice(0, 4).map((t, i) => (

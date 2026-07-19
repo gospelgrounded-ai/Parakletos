@@ -50,9 +50,12 @@ const preferredRank = new Map(
 );
 
 function buildData(allGroups: BollsLanguageGroup[]): Omit<TranslationsData, "isLoaded"> {
-  const englishGroup = allGroups.find((g) =>
-    g.translations.some((t) => t.short_name === "KJV")
-  );
+  // Language-name first (works for both providers); KJV-membership as a
+  // fallback for oddly-labeled group data. The old KJV-only sentinel broke
+  // under api.bible codes and silently substituted the hardcoded list.
+  const englishGroup =
+    allGroups.find((g) => /^english\b/i.test(g.language)) ??
+    allGroups.find((g) => g.translations.some((t) => t.short_name === "KJV"));
   const english = englishGroup?.translations ?? FALLBACK_TRANSLATIONS;
   const otherGroups = allGroups.filter((g) => g !== englishGroup);
 
