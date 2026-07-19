@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
   const verse = Number(body.verse);
   const requestedVoice = typeof body.voice === "string" ? body.voice : "";
 
-  if (!translation || translation.length > 10) {
+  if (!translation || translation.length > 20) {
     return NextResponse.json({ error: "Invalid translation" }, { status: 400 });
   }
   if (!Number.isInteger(book) || book < 1 || book > 66) {

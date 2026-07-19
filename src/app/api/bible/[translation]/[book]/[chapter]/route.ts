@@ -25,7 +25,7 @@ export async function GET(
       );
     }
 
-    if (!translation || translation.length > 10) {
+    if (!translation || translation.length > 20) {
       return NextResponse.json(
         { error: "Invalid translation" },
         { status: 400 }

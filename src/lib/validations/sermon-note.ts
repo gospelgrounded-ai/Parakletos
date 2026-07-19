@@ -14,7 +14,7 @@ const fields = {
   series: z.string().max(200),
   tags: z.string().max(500),
   isFavorite: z.boolean(),
-  translation: z.string().max(10).nullable(),
+  translation: z.string().max(20).nullable(),
 };
 
 export const sermonNoteUpdateSchema = z.object(fields).partial();

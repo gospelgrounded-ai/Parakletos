@@ -41,6 +41,7 @@ In the same import screen, expand **"Environment Variables"** and add:
 | `NEXTAUTH_URL` | `https://your-project-name.vercel.app` (use your actual Vercel URL — you can update this after first deploy) |
 | `ELEVENLABS_API_KEY` | Optional — enables premium audio-Bible narration ([get a key](https://elevenlabs.io/app/settings/api-keys)) |
 | `OPENAI_API_KEY` | Optional — used for audio-Bible narration if ElevenLabs isn't set ([get a key](https://platform.openai.com/api-keys)) |
+| `API_BIBLE_KEY` | Optional — layers additional translations on top of Bolls.life ([get a key](https://scripture.api.bible/)). See `.env.example` for the licensing caveat on copyrighted translations. |
 
 ## Step 5 — Push the database schema
 
@@ -102,6 +103,8 @@ NEXTAUTH_URL="http://localhost:3000"
 # Optional — audio-Bible narration:
 ELEVENLABS_API_KEY="<your key>"
 OPENAI_API_KEY="<your key>"
+# Optional — additional translations via api.bible:
+API_BIBLE_KEY="<your key>"
 ```
 
 Then push the schema locally with `npm run db:deploy` (see Step 5 above).

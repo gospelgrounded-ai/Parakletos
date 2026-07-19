@@ -1,4 +1,10 @@
 import { db } from "@/lib/db";
+import { Prisma } from "@prisma/client";
+import {
+  fetchScriptureApiBibles,
+  fetchScriptureApiChapter,
+  hasScriptureApiKey,
+} from "@/lib/bible-api-scripture";
 
 const BOLLS_BASE = "https://bolls.life";
 
@@ -71,17 +77,71 @@ export async function fetchTranslations(): Promise<BollsLanguageGroup[]> {
   );
   if (!res.ok) throw new Error("Failed to fetch translations");
   const data = await res.json();
-  if (Array.isArray(data)) return data;
-  return Object.entries(data).map(([language, translations]) => ({
-    language,
-    translations: (translations as BollsTranslation[]) || [],
-  }));
+  const groups: BollsLanguageGroup[] = Array.isArray(data)
+    ? data
+    : Object.entries(data).map(([language, translations]) => ({
+        language,
+        translations: (translations as BollsTranslation[]) || [],
+      }));
+  return mergeScriptureApiTranslations(groups);
 }
 
 /**
- * Read-through cache: on a successful Bolls fetch, persist the cleaned verse
- * list so a later Bolls outage doesn't take down a chapter someone already
+ * Layer in whatever Bibles API_BIBLE_KEY has access to, grouped by language
+ * alongside the Bolls.life groups. Bolls wins on an abbreviation collision
+ * (it's the trusted, always-on default); never throws — a broken/missing
+ * api.bible key should never take down the Bolls translation list.
+ */
+async function mergeScriptureApiTranslations(
+  groups: BollsLanguageGroup[]
+): Promise<BollsLanguageGroup[]> {
+  if (!hasScriptureApiKey()) return groups;
+  const bibles = await fetchScriptureApiBibles().catch(() => []);
+  if (bibles.length === 0) return groups;
+
+  const seenCodes = new Set(
+    groups.flatMap((g) => g.translations.map((t) => t.short_name.toUpperCase()))
+  );
+  const merged = groups.map((g) => ({ ...g, translations: [...g.translations] }));
+
+  for (const bible of bibles) {
+    const code = bible.abbreviation.toUpperCase();
+    if (seenCodes.has(code)) continue;
+    seenCodes.add(code);
+
+    let group = merged.find((g) => g.language === bible.language);
+    if (!group) {
+      group = { language: bible.language, translations: [] };
+      merged.push(group);
+    }
+    group.translations.push({
+      short_name: bible.abbreviation,
+      full_name: bible.name,
+      language: bible.language,
+    });
+  }
+  return merged;
+}
+
+/**
+ * Resolve a translation code to an api.bible Bible id, if your key has
+ * access to a Bible with that abbreviation. Returns null when API_BIBLE_KEY
+ * isn't set, or the code isn't among the Bibles your key can see — in both
+ * cases the caller falls back to Bolls.life.
+ */
+async function resolveScriptureApiBibleId(translation: string): Promise<string | null> {
+  if (!hasScriptureApiKey()) return null;
+  const bibles = await fetchScriptureApiBibles();
+  const match = bibles.find((b) => b.abbreviation.toUpperCase() === translation.toUpperCase());
+  return match?.id ?? null;
+}
+
+/**
+ * Read-through cache: on a successful fetch, persist the cleaned verse list
+ * so a later provider outage doesn't take down a chapter someone already
  * read. On failure, fall back to whatever we last cached (if anything).
+ * Tries api.bible first when the translation code matches a Bible your
+ * API_BIBLE_KEY has access to; otherwise uses Bolls.life as before.
  */
 export async function fetchChapter(
   translation: string,
@@ -89,19 +149,25 @@ export async function fetchChapter(
   chapter: number
 ): Promise<BollsVerse[]> {
   try {
-    const res = await fetch(
-      `${BOLLS_BASE}/get-text/${translation}/${book}/${chapter}/`,
-      FETCH_OPTIONS
-    );
-    if (!res.ok) throw new Error(`Failed to fetch ${translation} ${book}:${chapter}`);
-    const raw = (await res.json()) as BollsVerse[];
-    const verses = raw.map((v) => ({ ...v, text: cleanVerseText(v.text) }));
+    const scriptureApiBibleId = await resolveScriptureApiBibleId(translation);
+    const verses: BollsVerse[] = scriptureApiBibleId
+      ? await fetchScriptureApiChapter(scriptureApiBibleId, book, chapter)
+      : await (async () => {
+          const res = await fetch(
+            `${BOLLS_BASE}/get-text/${translation}/${book}/${chapter}/`,
+            FETCH_OPTIONS
+          );
+          if (!res.ok) throw new Error(`Failed to fetch ${translation} ${book}:${chapter}`);
+          const raw = (await res.json()) as BollsVerse[];
+          return raw.map((v) => ({ ...v, text: cleanVerseText(v.text) }));
+        })();
     if (verses.length > 0) {
+      const versesJson = verses as unknown as Prisma.InputJsonValue;
       await db.chapterCache
         .upsert({
           where: { translation_book_chapter: { translation, book, chapter } },
-          create: { translation, book, chapter, verses },
-          update: { verses, fetchedAt: new Date() },
+          create: { translation, book, chapter, verses: versesJson },
+          update: { verses: versesJson, fetchedAt: new Date() },
         })
         .catch(() => {});
     }
