@@ -83,16 +83,19 @@ export async function fetchTranslations(): Promise<BollsLanguageGroup[]> {
         language,
         translations: (translations as BollsTranslation[]) || [],
       }));
-  return mergeScriptureApiTranslations(groups);
+  return groups;
 }
 
 /**
  * Layer in whatever Bibles API_BIBLE_KEY has access to, grouped by language
- * alongside the Bolls.life groups. Bolls wins on an abbreviation collision
- * (it's the trusted, always-on default); never throws — a broken/missing
- * api.bible key should never take down the Bolls translation list.
+ * alongside a base set of groups (either live Bolls.life data, or the
+ * hardcoded FALLBACK_GROUPS when Bolls itself is unreachable — this must be
+ * applied to BOTH, since a Bolls outage shouldn't take api.bible down too).
+ * Bolls wins on an abbreviation collision (it's the trusted, always-on
+ * default); never throws — a broken/missing api.bible key should never
+ * take down the translation list.
  */
-async function mergeScriptureApiTranslations(
+export async function mergeScriptureApiTranslations(
   groups: BollsLanguageGroup[]
 ): Promise<BollsLanguageGroup[]> {
   if (!hasScriptureApiKey()) return groups;
