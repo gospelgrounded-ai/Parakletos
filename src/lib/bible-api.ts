@@ -4,6 +4,7 @@ import {
   fetchScriptureApiBibles,
   fetchScriptureApiChapter,
   hasScriptureApiKey,
+  type ScriptureApiBible,
 } from "@/lib/bible-api-scripture";
 
 const BOLLS_BASE = "https://bolls.life";
@@ -86,36 +87,13 @@ export async function fetchTranslations(): Promise<BollsLanguageGroup[]> {
   return groups;
 }
 
-/**
- * Layer in whatever Bibles API_BIBLE_KEY has access to, grouped by language
- * alongside a base set of groups (either live Bolls.life data, or the
- * hardcoded FALLBACK_GROUPS when Bolls itself is unreachable — this must be
- * applied to BOTH, since a Bolls outage shouldn't take api.bible down too).
- * Bolls wins on an abbreviation collision (it's the trusted, always-on
- * default); never throws — a broken/missing api.bible key should never
- * take down the translation list.
- */
-export async function mergeScriptureApiTranslations(
-  groups: BollsLanguageGroup[]
-): Promise<BollsLanguageGroup[]> {
-  if (!hasScriptureApiKey()) return groups;
-  const bibles = await fetchScriptureApiBibles().catch(() => []);
-  if (bibles.length === 0) return groups;
-
-  const seenCodes = new Set(
-    groups.flatMap((g) => g.translations.map((t) => t.short_name.toUpperCase()))
-  );
-  const merged = groups.map((g) => ({ ...g, translations: [...g.translations] }));
-
+function groupScriptureApiBibles(bibles: ScriptureApiBible[]): BollsLanguageGroup[] {
+  const groups: BollsLanguageGroup[] = [];
   for (const bible of bibles) {
-    const code = bible.abbreviation.toUpperCase();
-    if (seenCodes.has(code)) continue;
-    seenCodes.add(code);
-
-    let group = merged.find((g) => g.language === bible.language);
+    let group = groups.find((g) => g.language === bible.language);
     if (!group) {
       group = { language: bible.language, translations: [] };
-      merged.push(group);
+      groups.push(group);
     }
     group.translations.push({
       short_name: bible.abbreviation,
@@ -123,7 +101,38 @@ export async function mergeScriptureApiTranslations(
       language: bible.language,
     });
   }
-  return merged;
+  return groups;
+}
+
+export interface TranslationSourceResult {
+  source: "api.bible" | "bolls";
+  groups: BollsLanguageGroup[];
+  /** True only when even Bolls' own live fetch failed and this is the
+   *  hardcoded static list — signals a shorter cache so the next request
+   *  retries sooner instead of pinning a stale response for a full day. */
+  stale: boolean;
+}
+
+/**
+ * api.bible is the primary translation source: when API_BIBLE_KEY is set
+ * and has at least one Bible attached to it, its list is used as-is.
+ * Bolls.life (this file's fetchTranslations()) is kept only as a
+ * fallback — used when there's no key, the api.bible request fails, or the
+ * key currently has zero Bibles approved.
+ */
+export async function fetchPrimaryTranslations(): Promise<TranslationSourceResult> {
+  if (hasScriptureApiKey()) {
+    const bibles = await fetchScriptureApiBibles().catch(() => []);
+    if (bibles.length > 0) {
+      return { source: "api.bible", groups: groupScriptureApiBibles(bibles), stale: false };
+    }
+  }
+  try {
+    const groups = await fetchTranslations();
+    return { source: "bolls", groups, stale: false };
+  } catch {
+    return { source: "bolls", groups: FALLBACK_GROUPS, stale: true };
+  }
 }
 
 /**

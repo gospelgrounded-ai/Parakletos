@@ -1,29 +1,18 @@
 import { NextResponse } from "next/server";
 import {
-  fetchTranslations,
-  mergeScriptureApiTranslations,
+  fetchPrimaryTranslations,
   FEATURED_TRANSLATION_CODES,
   FALLBACK_TRANSLATIONS,
-  FALLBACK_GROUPS,
-  type BollsLanguageGroup,
   type BollsTranslation,
 } from "@/lib/bible-api";
 
 export async function GET() {
-  // Bolls.life sometimes blocks server-to-server requests (client-side CORS
-  // still works — see useTranslations.ts), so a Bolls failure here falls
-  // back to a hardcoded list. Either way, api.bible must still be merged in
-  // — a Bolls outage on the server shouldn't also hide api.bible results.
-  let rawGroups: BollsLanguageGroup[];
-  let usingFallback = false;
-  try {
-    rawGroups = await fetchTranslations();
-  } catch {
-    rawGroups = FALLBACK_GROUPS;
-    usingFallback = true;
-  }
-
-  const groups = await mergeScriptureApiTranslations(rawGroups);
+  // api.bible is the primary source (see fetchPrimaryTranslations); Bolls
+  // is only used when there's no key, api.bible failed, or the key has zero
+  // approved Bibles. `source` tells the client which one it got, since
+  // useTranslations() only needs its own direct-to-bolls.life fallback path
+  // when the server had to fall back too.
+  const { source, groups, stale } = await fetchPrimaryTranslations();
 
   // Find the English group — identified by containing "KJV"
   const englishGroup = groups.find((g) =>
@@ -47,10 +36,10 @@ export async function GET() {
   });
 
   return NextResponse.json(
-    { english: sorted, groups: otherGroups },
+    { source, english: sorted, groups: otherGroups },
     {
       headers: {
-        "Cache-Control": usingFallback
+        "Cache-Control": stale
           ? "public, s-maxage=300"
           : "public, s-maxage=86400, stale-while-revalidate=3600",
       },

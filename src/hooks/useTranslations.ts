@@ -10,13 +10,16 @@ import {
 } from "@/lib/bible-api";
 
 // Direct browser fetch — Bolls.life blocks server-to-server requests but
-// allows browser requests (client-side CORS). This gives us the real list.
+// allows browser requests (client-side CORS). Only used when the server
+// route reports it fell back to Bolls too (see below) — otherwise api.bible
+// is the primary source and this never needs to run.
 const BOLLS_TRANSLATIONS_URL =
   "https://bolls.life/static/bolls/app/views/languages-and-translations.json";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 interface ApiResponse {
+  source: "api.bible" | "bolls";
   english: BollsTranslation[];
   groups: BollsLanguageGroup[];
 }
@@ -67,64 +70,50 @@ function buildData(allGroups: BollsLanguageGroup[]): Omit<TranslationsData, "isL
   return { english: sortedEnglish, popular, groups: otherGroups };
 }
 
-/** Union two group sets by language, deduping by short_name (first set wins). */
-function mergeGroups(
-  primary: BollsLanguageGroup[],
-  extra: BollsLanguageGroup[]
-): BollsLanguageGroup[] {
-  const seen = new Set(
-    primary.flatMap((g) => g.translations.map((t) => t.short_name.toUpperCase()))
-  );
-  const merged = primary.map((g) => ({ ...g, translations: [...g.translations] }));
-  for (const g of extra) {
-    for (const t of g.translations) {
-      const code = t.short_name.toUpperCase();
-      if (seen.has(code)) continue;
-      seen.add(code);
-      let group = merged.find((mg) => mg.language === g.language);
-      if (!group) {
-        group = { language: g.language, translations: [] };
-        merged.push(group);
-      }
-      group.translations.push(t);
-    }
-  }
-  return merged;
-}
-
 export function useTranslations(): TranslationsData {
-  // 1. Try browser-direct fetch from Bolls.life (full live list, all languages)
-  const { data: directRaw, error: directError } = useSWR<unknown>(
-    BOLLS_TRANSLATIONS_URL,
-    fetcher,
-    { revalidateOnFocus: false, shouldRetryOnError: false }
-  );
-
-  // 2. Always fetch our server-side route too — not just as a Bolls
-  // fallback, but because it's the only source for any translations layered
-  // in from api.bible (API_BIBLE_KEY), which bolls.life has no knowledge of.
+  // api.bible is the primary source when API_BIBLE_KEY is configured and
+  // has at least one Bible attached — the server route decides this (see
+  // fetchPrimaryTranslations()) and tells us which one it used.
   const { data: apiData } = useSWR<ApiResponse>(
     "/api/bible/translations",
     fetcher,
     { revalidateOnFocus: false, shouldRetryOnError: false }
   );
 
-  const apiGroups: BollsLanguageGroup[] | null = apiData?.english
-    ? [{ language: "English", translations: apiData.english }, ...(apiData.groups ?? [])]
-    : null;
+  // Bolls.life kept only as a fallback: fired eagerly (so there's no
+  // waterfall while apiData is still loading) but only actually used below
+  // once we know the server also fell back to Bolls.
+  const { data: directRaw, error: directError } = useSWR<unknown>(
+    BOLLS_TRANSLATIONS_URL,
+    fetcher,
+    { revalidateOnFocus: false, shouldRetryOnError: false }
+  );
 
+  if (apiData?.source === "api.bible") {
+    const groups: BollsLanguageGroup[] = [
+      { language: "English", translations: apiData.english },
+      ...(apiData.groups ?? []),
+    ];
+    return { ...buildData(groups), isLoaded: true };
+  }
+
+  // Server fell back to Bolls (or hasn't responded yet) — prefer the direct
+  // browser fetch (more likely to be the full live list) and fall back to
+  // the server's own Bolls response, then the hardcoded list.
   if (directRaw && !directError) {
     const directGroups = parseRawGroups(directRaw);
     if (directGroups.length > 0) {
-      const groups = apiGroups ? mergeGroups(directGroups, apiGroups) : directGroups;
-      return { ...buildData(groups), isLoaded: true };
+      return { ...buildData(directGroups), isLoaded: true };
     }
   }
 
-  if (apiGroups) {
-    return { ...buildData(apiGroups), isLoaded: true };
+  if (apiData?.english) {
+    const groups: BollsLanguageGroup[] = [
+      { language: "English", translations: apiData.english },
+      ...(apiData.groups ?? []),
+    ];
+    return { ...buildData(groups), isLoaded: true };
   }
 
-  // 3. Comprehensive hardcoded fallback
   return { ...buildData(FALLBACK_GROUPS), isLoaded: !!(directRaw || apiData) };
 }
