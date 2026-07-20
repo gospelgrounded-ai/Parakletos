@@ -219,6 +219,20 @@ model ChapterCache {
   @@unique([translation, book, chapter])
 }
 
+// Read-through cache of one commentary source's chapter payload, so a
+// bible.helloao.org outage doesn't take down previously-read commentary.
+model CommentaryCache {
+  id           String   @id @default(cuid())
+  commentaryId String // helloao commentary id, e.g. "mhc"
+  book         Int // 1-66 canonical order
+  chapter      Int
+  name         String // englishName at fetch time
+  payload      Json // { introduction: string | null, verses: [{ verse, text }] }
+  fetchedAt    DateTime @default(now())
+
+  @@unique([commentaryId, book, chapter])
+}
+
 // Read-through cache of a translation's book list.
 model BookListCache {
   id          String   @id @default(cuid())

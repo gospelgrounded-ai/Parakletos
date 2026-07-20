@@ -1,37 +1,42 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { X, BookOpen, GitBranch, Scroll, ChevronUp, ChevronDown } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  X,
+  BookOpen,
+  GitBranch,
+  Scroll,
+  ChevronUp,
+  ChevronDown,
+  ListFilter,
+  Crosshair,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatReference } from "@/lib/bible-books";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
+import {
+  splitIntoParagraphs,
+  findCoveringVerseEntry,
+  MAX_SOURCES,
+} from "@/lib/commentary-format";
+import {
+  loadCommentaryPrefs,
+  saveCommentaryPrefs,
+  type CommentaryPrefs,
+} from "@/lib/commentary-prefs";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import useSWR from "swr";
 import Link from "next/link";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
-
-/**
- * Commentary introductions arrive as one long run-on paragraph. Break them into
- * a few readable chunks: prefer existing newlines, otherwise group sentences so
- * no single block is an overwhelming wall of text.
- */
-function splitIntoParagraphs(text: string): string[] {
-  const byNewline = text
-    .split(/\n+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (byNewline.length > 1) return byNewline;
-
-  const sentences = text.match(/[^.!?]+[.!?]+(\s|$)/g);
-  if (!sentences || sentences.length <= 3) return [text.trim()];
-
-  const perChunk = Math.ceil(sentences.length / Math.ceil(sentences.length / 3));
-  const chunks: string[] = [];
-  for (let i = 0; i < sentences.length; i += perChunk) {
-    chunks.push(sentences.slice(i, i + perChunk).join("").trim());
-  }
-  return chunks;
-}
 
 interface StudyPanelProps {
   translation: string;
@@ -336,6 +341,11 @@ interface CommentaryEntry {
 // Sentinel meaning "user explicitly closed all"
 const COMMENTARY_NONE = "__none__";
 
+interface CommentarySource {
+  id: string;
+  name: string;
+}
+
 function CommentaryTab({
   book,
   chapter,
@@ -347,10 +357,76 @@ function CommentaryTab({
 }) {
   // null = default (first open), "__none__" = all closed, id = that one open
   const [expanded, setExpanded] = useState<string | null>(null);
-  const { data, isLoading } = useSWR(
-    `/api/commentary?book=${book}&chapter=${chapter}`,
+  const [prefs, setPrefs] = useState<CommentaryPrefs>(() => loadCommentaryPrefs());
+  const selectedVerseRef = useRef<HTMLDivElement | null>(null);
+
+  const { data: sourcesData } = useSWR("/api/commentary/sources", fetcher, {
+    revalidateOnFocus: false,
+  });
+  const availableSources: CommentarySource[] = useMemo(
+    () => sourcesData?.sources ?? [],
+    [sourcesData]
+  );
+
+  // The picker needs a concrete "currently selected" set even before the
+  // user has ever chosen: the sources route returns preferred-first order,
+  // so its first three are exactly the server's default trio.
+  const effectiveSelection = useMemo(() => {
+    if (prefs.sources) return prefs.sources;
+    return availableSources.slice(0, 3).map((s) => s.id);
+  }, [prefs.sources, availableSources]);
+
+  // Canonicalize the CSV by list position so every mount (desktop sidebar +
+  // mobile sheet) shares one SWR cache entry regardless of toggle order.
+  const sourcesParam = useMemo(() => {
+    if (!prefs.sources) return null;
+    const rank = new Map(availableSources.map((s, i) => [s.id, i]));
+    return [...prefs.sources]
+      .sort((a, b) => (rank.get(a) ?? 999) - (rank.get(b) ?? 999))
+      .join(",");
+  }, [prefs.sources, availableSources]);
+
+  const { data, error, isLoading, mutate } = useSWR(
+    `/api/commentary?book=${book}&chapter=${chapter}` +
+      (sourcesParam ? `&sources=${sourcesParam}` : ""),
     fetcher
   );
+
+  const commentaries: CommentaryEntry[] = useMemo(
+    () => data?.commentaries ?? [],
+    [data]
+  );
+  const failed = !!error || data?.error === "fetch_failed";
+
+  // Which commentary section is open (first by default)
+  const activeId =
+    expanded === null ? (commentaries[0]?.id ?? "") : expanded;
+
+  // Auto-scroll the selected verse's (covering) entry into view once content
+  // is rendered. The hidden desktop/mobile twin no-ops (display:none).
+  useEffect(() => {
+    if (verse === null) return;
+    const el = selectedVerseRef.current;
+    if (el) el.scrollIntoView({ block: "center" });
+  }, [verse, data, activeId, prefs.focus]);
+
+  function updatePrefs(next: CommentaryPrefs) {
+    setPrefs(next);
+    saveCommentaryPrefs(next);
+  }
+
+  function toggleSource(id: string) {
+    const set = new Set(effectiveSelection);
+    if (set.has(id)) {
+      if (set.size <= 1) return; // keep at least one
+      set.delete(id);
+    } else {
+      if (set.size >= MAX_SOURCES) return;
+      set.add(id);
+    }
+    updatePrefs({ ...prefs, sources: [...set] });
+    setExpanded(null);
+  }
 
   if (isLoading) {
     return (
@@ -370,77 +446,166 @@ function CommentaryTab({
     );
   }
 
-  const commentaries: CommentaryEntry[] = data?.commentaries ?? [];
-
-  if (commentaries.length === 0) {
-    return (
-      <div className="p-4 text-center text-sm text-muted-foreground">
-        <Scroll className="h-8 w-8 mx-auto mb-2 opacity-30" />
-        <p>No commentary available for this chapter</p>
-        <p className="text-xs mt-1">More resources coming soon</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="divide-y">
-      {commentaries.map((commentary) => {
-        // Default: first commentary open; user can toggle
-        const activeId = expanded === null ? (commentaries[0]?.id ?? "") : expanded;
-        const isOpen = activeId !== COMMENTARY_NONE && activeId === commentary.id;
-        return (
-          <div key={commentary.id}>
-            <button
-              onClick={() => setExpanded(isOpen ? COMMENTARY_NONE : commentary.id)}
-              className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors text-left"
-            >
-              <div>
-                <p className="text-xs font-semibold">{commentary.name}</p>
-                <p className="text-[10px] text-muted-foreground">Public domain</p>
-              </div>
-              {isOpen ? (
-                <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-              ) : (
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-              )}
-            </button>
+    <div>
+      {/* Toolbar: source picker + per-verse focus */}
+      <div className="flex items-center justify-between gap-2 px-4 py-2 border-b bg-muted/20">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs -ml-2">
+              <ListFilter className="h-3.5 w-3.5" />
+              Sources
+              <span className="text-muted-foreground">({effectiveSelection.length})</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64 max-h-80 overflow-y-auto">
+            <DropdownMenuLabel className="text-xs">
+              Commentaries (up to {MAX_SOURCES})
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {availableSources.map((s) => (
+              <DropdownMenuCheckboxItem
+                key={s.id}
+                checked={effectiveSelection.includes(s.id)}
+                onCheckedChange={() => toggleSource(s.id)}
+                onSelect={(e) => e.preventDefault()}
+                className="text-xs"
+              >
+                {s.name}
+              </DropdownMenuCheckboxItem>
+            ))}
+            {availableSources.length === 0 && (
+              <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                Source list unavailable
+              </p>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-            {isOpen && (
-              <div className="pb-2">
-                {commentary.introduction && (
-                  <div className="px-4 py-2.5 border-b bg-muted/20 space-y-1.5">
-                    {splitIntoParagraphs(commentary.introduction).map((para, idx) => (
-                      <p
-                        key={idx}
-                        className="text-xs text-muted-foreground leading-relaxed font-serif"
-                      >
-                        {para}
+        {verse !== null && (
+          <button
+            onClick={() => updatePrefs({ ...prefs, focus: !prefs.focus })}
+            aria-pressed={prefs.focus}
+            className={cn(
+              "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors",
+              prefs.focus
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            title="Show only the selected verse"
+          >
+            <Crosshair className="h-3.5 w-3.5" />
+            v.{verse} only
+          </button>
+        )}
+      </div>
+
+      {data?.stale && (
+        <p className="px-4 py-2 text-[11px] text-muted-foreground border-b bg-muted/30">
+          Showing a saved copy — the commentary source is currently unreachable.
+        </p>
+      )}
+
+      {failed && (
+        <div className="p-6 text-center text-sm text-muted-foreground">
+          <Scroll className="h-8 w-8 mx-auto mb-2 opacity-30" />
+          <p className="font-medium text-foreground">Commentary couldn&apos;t be loaded</p>
+          <p className="text-xs mt-1 mb-3">The commentary source may be down.</p>
+          <Button variant="outline" size="sm" onClick={() => mutate()}>
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {!failed && commentaries.length === 0 && (
+        <div className="p-4 text-center text-sm text-muted-foreground">
+          <Scroll className="h-8 w-8 mx-auto mb-2 opacity-30" />
+          <p>No commentary available for this chapter</p>
+          <p className="text-xs mt-1">Try different sources above</p>
+        </div>
+      )}
+
+      {!failed && commentaries.length > 0 && (
+        <div className="divide-y">
+          {commentaries.map((commentary) => {
+            const isOpen = activeId !== COMMENTARY_NONE && activeId === commentary.id;
+            // Entries often cover a range starting at their number, so both
+            // highlight and focus target the covering entry, not exact match.
+            const coveringVerse =
+              verse !== null
+                ? findCoveringVerseEntry(commentary.verses, verse)?.verse ?? null
+                : null;
+            const visibleVerses =
+              prefs.focus && verse !== null
+                ? commentary.verses.filter((v) => v.verse === coveringVerse)
+                : commentary.verses;
+            return (
+              <div key={commentary.id}>
+                <button
+                  onClick={() => setExpanded(isOpen ? COMMENTARY_NONE : commentary.id)}
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                >
+                  <div>
+                    <p className="text-xs font-semibold">{commentary.name}</p>
+                    <p className="text-[10px] text-muted-foreground">Public domain</p>
+                  </div>
+                  {isOpen ? (
+                    <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  )}
+                </button>
+
+                {isOpen && (
+                  <div className="pb-2">
+                    {commentary.introduction && !(prefs.focus && verse !== null) && (
+                      <div className="px-4 py-2.5 border-b bg-muted/20 space-y-1.5">
+                        {splitIntoParagraphs(commentary.introduction).map((para, idx) => (
+                          <p
+                            key={idx}
+                            className="text-xs text-muted-foreground leading-relaxed font-serif"
+                          >
+                            {para}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    {prefs.focus && verse !== null && visibleVerses.length === 0 && (
+                      <p className="px-4 py-2.5 text-xs text-muted-foreground">
+                        No entry for verse {verse} in this commentary.
                       </p>
-                    ))}
+                    )}
+
+                    <div className="divide-y">
+                      {visibleVerses.map((v) => {
+                        const isSelected = isOpen && v.verse === coveringVerse;
+                        return (
+                          <div
+                            key={v.verse}
+                            ref={isSelected ? selectedVerseRef : undefined}
+                            className={cn(
+                              "px-4 py-2.5",
+                              isSelected && "bg-primary/5 border-l-2 border-l-primary"
+                            )}
+                          >
+                            <p className="text-[11px] font-semibold text-primary mb-1">
+                              v.{v.verse}
+                            </p>
+                            <p className="text-sm text-foreground/80 leading-relaxed font-serif">
+                              {v.text}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
-
-                <div className="divide-y">
-                  {commentary.verses.map((v) => (
-                    <div
-                      key={v.verse}
-                      className={cn(
-                        "px-4 py-2.5",
-                        verse === v.verse && "bg-primary/5 border-l-2 border-l-primary"
-                      )}
-                    >
-                      <p className="text-[11px] font-semibold text-primary mb-1">v.{v.verse}</p>
-                      <p className="text-sm text-foreground/80 leading-relaxed font-serif">
-                        {v.text}
-                      </p>
-                    </div>
-                  ))}
-                </div>
               </div>
-            )}
-          </div>
-        );
-      })}
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
